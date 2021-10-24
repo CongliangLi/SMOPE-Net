@@ -1,0 +1,101 @@
+{
+  "dataset_name": "kitti",
+  "dataset_path": "/mnt/data3/CongliangLi/DETR/data/kitti",
+  "phase": "train",
+  "class_num": 1,
+  "device": "cuda:3",
+  "seed": 42,
+
+  "pixel_mean": [113.16, 109.23, 107.20],
+  "pixel_var": [0.0327, 0.0306, 0.0347],
+  "num_motion_model_param": 12,
+  "image_width": 960,
+  "image_height": 540,
+  "detection_layer_num":3,
+  "label_map": {
+    "Tram": 1,
+    "Car": 2,
+    "Truck": 3,
+    "Van": 4,
+    "Pedestrian": 5
+  },
+  "replace_map": {
+    "vehicle": 1
+  },
+  "model": {
+    "model_name":["tram_001.obj", "car_001.obj", "truck_001.obj", "van_001.obj", "pedestrian_001.obj"],
+    "model_device": "cuda:3",
+    "poses": true,
+    "model_num_samples": 5000
+  },
+  "test": {
+    "resume": "../../logs/train/1006_1816_17/weights/Car.pth",
+    "dataset_type": "train",
+    "batch_size": 1,
+    "num_workers": 0,
+    "lr_decay_per_epoch": [1, 30, 45, 50],
+    "base_net_weights": null,
+    "image_save_folder": "images",
+    "sequence_list": "./dataset/ua/sequence_list_train_llc.txt",
+    "start_epoch": 0,
+    "end_epoch": 1,
+    "momentum": 0.9,
+    "weight_decay": 5e-4,
+    "gamma": 0.1,
+    "send_images": true,
+    "log_iters": true,
+    "run_mode": "release",
+    "debug_save_image": false,
+    "debug_save_feature_map": false,
+    "save_track_data": true,
+    "contrast_lower": 0.5,
+    "contrast_upper": 1.5,
+    "saturation_lower": 0.5,
+    "saturation_upper": 1.5,
+    "hue_delta": 18.0,
+    "brightness_delta": 32,
+    "max_expand_ratio": 1.1,
+    "detect_bkg_label": 0,
+    "detect_top_k": 300,
+    "detect_conf_thresh": 0.3,
+    "detect_nms_thresh": 0.3,
+    "detect_exist_thresh": 0.5,
+    "detect_objness_thresh": 0.5,
+    "detect": true,
+    "nms_detect": true,
+     "detect_obj_show_topk": 60,
+     "detect_obj_show_thresh": 0.3
+  },
+  "train": {
+    "start_epoch": 0,
+    "end_epoch": 300,
+    "resume": "",
+    "output_dir": "../output_dir",
+
+    "frozen_weights": null,
+
+    "num_workers": 0,
+    "lr": 2e-4,
+    "batch_size": 2,
+
+    "matcher_cost_class": 2,
+    "matcher_cost_bbox": 5,
+    "matcher_cost_giou": 2,
+
+
+    "cls_loss_weight": 2,
+    "bbox2d_loss_weight": 5,
+    "giou_loss_weight": 2,
+    "focal_alpha": 0.25,
+
+    "model3d_scales_weight": 8.0,
+    "model3d_centers_weight": 4.0,
+    "model3d_points_weight": 1.0,
+    "model3d_chamfer_weight": 1.0,
+    "model3d_edge_weight": 1.0,
+    "model3d_normal_weight": 0.01,
+    "model3d_laplacian_weight": 0.1,
+
+    "tensorboard": true
+  }
+}
