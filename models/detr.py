@@ -33,8 +33,10 @@ if config["model"]["poses"]:
         mesh_normal_consistency,
     )
 
+
 class DETR(nn.Module):
     """ This is the DETR module that performs object detection """
+
     def __init__(self, backbone, transformer, num_classes, num_queries, aux_loss=False):
         """ Initializes the model.
         Parameters:
@@ -101,6 +103,7 @@ class SetCriterion(nn.Module):
         1) we compute hungarian assignment between ground truth boxes and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
+
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
         """ Create the criterion.
         Parameters:
@@ -216,20 +219,20 @@ class SetCriterion(nn.Module):
         src_scales = outputs["pred_model_scales"]
         tgt_scales = targets[0]["model_scales"]
         # 2. calcuate the scale loss
-        losses["model3d_scales"] = nn.L1Loss()(src_scales, tgt_scales) * cfg["model3d_scales_weight"] / nm
+        losses["model3d_scales"] = nn.L1Loss()(src_scales, tgt_scales) / nm
 
         # 3. get predict centers
         src_centers = outputs["pred_model_centers"]
         tgt_centers = targets[0]["model_centers"]
         # 4. calcuate the center loss
-        losses["model3d_centers"] = nn.L1Loss()(src_centers, tgt_centers) * cfg["model3d_centers_weight"] / nm
+        losses["model3d_centers"] = nn.L1Loss()(src_centers, tgt_centers) / nm
 
         # 5. get predict points
         src_points = outputs["pred_model_points"]
         tgt_points = targets[0]["model_points"]
         # 6. cacluat the points loss
         losses["model3d_points"] = []
-        
+
         for i in range(nm):
             deform_verts = src_points[i]
 
@@ -255,7 +258,8 @@ class SetCriterion(nn.Module):
 
             # Weighted sum of the losses
             losses["model3d_points"].append(
-                loss_chamfer * cfg["model3d_chamfer_weight"] + loss_edge * cfg["model3d_edge_weight"] + loss_normal * cfg["model3d_normal_weight"] + loss_laplacian * cfg["model3d_laplacian_weight"])
+                loss_chamfer * cfg["model3d_chamfer_weight"] + loss_edge * cfg["model3d_edge_weight"] + loss_normal *
+                cfg["model3d_normal_weight"] + loss_laplacian * cfg["model3d_laplacian_weight"])
 
         losses["model3d_points"] = sum(losses["model3d_points"]) / nm
 
@@ -276,46 +280,42 @@ class SetCriterion(nn.Module):
         src_class = src_class[src_idx]
         # 1.2 get target model class
         tgt_class_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)])
-        
+
         # 1.3 get the model class loss
         loss_mc = F.cross_entropy(src_class[None, :].permute(0, 2, 1), tgt_class_o[None, :])
-        losses["pose_6dof_class"] = loss_mc*cfg["model_6dof_class_weight"]
+        losses["pose_6dof_class"] = loss_mc
 
         # 2. get 6Dof loss
         # 2.1 get predict 6Dof
         src_pose = outputs["pose_6dof"]
         src_6dof_pose = src_pose[src_idx]
-        model_index = src_class.argmax(dim = -1)
-        src_6dof_pose = torch.stack([src_6dof_pose[i,j, :] for i, j in enumerate(model_index)],dim=0)
+        model_index = src_class.argmax(dim=-1)
+        src_6dof_pose = torch.stack([src_6dof_pose[i, j, :] for i, j in enumerate(model_index)], dim=0)
 
         src_6dof_t_pose = src_6dof_pose[:, :3]
         src_6dof_r_pose = src_6dof_pose[:, 3:]
-        
-        
+
         # 2.2 get target 6Dof pose
         tgt_6dof_t_pose_o = torch.cat([t["T_matrix_c2o"][J] for t, (_, J) in zip(targets, indices)])
         tgt_6dof_r_pose_o = torch.cat([t["R_quaternion_c2o"][J] for t, (_, J) in zip(targets, indices)])
-        # tgt_6dof_pose_o = torch.cat((tgt_6dof_t_pose_o, tgt_6dof_r_pose_o),dim=1)
+        tgt_6dof_pose_o = torch.cat((tgt_6dof_t_pose_o, tgt_6dof_r_pose_o),dim=1)
 
         tgt_bboxes_2d = torch.cat([t["bboxes_2d"][J] for t, (_, J) in zip(targets, indices)])
         tgt_bboxes_3d_w = torch.cat([t["bboxes_3d_w"][J] for t, (_, J) in zip(targets, indices)])
 
-
         # 2.3 get the model add loss
-        losses["pose_6dof_add"] = nn.L1Loss()(src_6dof_t_pose, tgt_6dof_t_pose_o) * cfg["model_6dof_add_weight"]
+        losses["pose_6dof_add"] = nn.L1Loss()(src_6dof_t_pose, tgt_6dof_t_pose_o)
 
-        
-        #TODO: 2.4 get the model l1 loss of 3d bbox
+        # TODO: 2.4 get the model l1 loss of 3d bbox
 
         # tgt_bboxes_3d_points = [[tgt_bboxes_3d_w[i][0], tgt_bboxes_3d_w[i][-1]]for i in range(tgt_bboxes_3d_w.shape[0])]
-        
 
         # 2.5 get the model l1 loss of fps points
         # 2.5.1 get the fps points in object coordinate
         fps_points = targets[0]["fps_points"]
         fps_points = torch.stack([fps_points[i, ...] for i in model_index], dim=0)
         # fps_points = tgm.convert_points_to_homogeneous(fps_points)
-        
+
         # 2.5.2 get the src matrix which can convert points from obj to camera
 
         src_matrix = tgm.angle_axis_to_rotation_matrix(tgm.quaternion_to_angle_axis(src_6dof_r_pose))
@@ -333,16 +333,15 @@ class SetCriterion(nn.Module):
         tgt_fps_points_camera = tgm.transform_points(tgt_matrix, fps_points)
 
         # 2.5.6 calcuate the l1 loss between target fps points and src fps points
-        losses["pose_6dof_fps_points_3d"] = nn.L1Loss()(src_fps_points_camera, tgt_fps_points_camera)*cfg["model_6dof_fps_points_weight"]
+        losses["pose_6dof_fps_points_3d"] = nn.L1Loss()(src_fps_points_camera, tgt_fps_points_camera)
 
-        #TODO: 3 get the model bboxes_2d loss
+        # TODO: 3 get the model bboxes_2d loss
         # losses["pose_6dof_bboxes_2d"] = 0
 
-        #TODO: 4 get the 3d iou loss
+        # TODO: 4 get the 3d iou loss
         # losses["pose_6dof_bboxes_3d"] = 0
-        
+
         return losses
-        
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -361,7 +360,7 @@ class SetCriterion(nn.Module):
             'labels': self.loss_labels,
             'cardinality': self.loss_cardinality,
             'boxes': self.loss_boxes,
-            'masks': self.loss_masks, 
+            'masks': self.loss_masks,
             'model3d': self.loss_model3d,
             "pose6dof": self.loss_pose6dof
         }
@@ -400,7 +399,7 @@ class SetCriterion(nn.Module):
                     if loss == 'masks':
                         # Intermediate masks losses are too costly to compute, we ignore them.
                         continue
-                    
+
                     if loss == "model3d":
                         continue
 
@@ -420,6 +419,7 @@ class SetCriterion(nn.Module):
 
 class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
+
     @torch.no_grad()
     def forward(self, outputs, target_sizes):
         """ Perform the computation
@@ -506,9 +506,12 @@ def build(args):
         weight_dict["loss_dice"] = args.dice_loss_coef
 
     if args.poses:
-        weight_dict["model3d"] = cfg["model3d_loss_weight"]
-        weight_dict["pose6dof"] = cfg["pose6dof_loss_weight"]
-    
+        weight_dict["model3d_scales"] = cfg["model3d_scales_weight"]
+        weight_dict["model3d_centers"] = cfg["model3d_centers_weight"]
+        weight_dict["model3d_points"] = cfg["model3d_points_weight"]
+        weight_dict["pose_6dof_class"] = cfg["model_6dof_class_weight"]
+        weight_dict["pose_6dof_add"] = cfg["model_6dof_add_weight"]
+        weight_dict["pose_6dof_fps_points_3d"] = cfg["model_6dof_fps_points_weight"]
 
     # TODO this is a hack
     if args.aux_loss:
@@ -520,10 +523,10 @@ def build(args):
     losses = ['labels', 'boxes', 'cardinality']
 
     if args.poses:
-        losses += ["model3d", "pose6dof"]
+        losses = losses + ["model3d", "pose6dof"]
 
     if args.masks:
-        losses += ["masks"]
+        losses = losses + ["masks"]
     criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
                              eos_coef=args.eos_coef, losses=losses)
     criterion.to(device)
@@ -535,4 +538,3 @@ def build(args):
             postprocessors["panoptic"] = PostProcessPanoptic(is_thing_map, threshold=0.85)
 
     return model, criterion, postprocessors
-

@@ -8,6 +8,7 @@ import sys
 from typing import Iterable
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 import util.misc as utils
 from datasets.coco_eval import CocoEvaluator
@@ -17,7 +18,7 @@ from datasets.panoptic_eval import PanopticEvaluator
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, max_norm: float = 0,
-                    writer=None):
+                    board_writer: SummaryWriter = None):
     model.train()
     criterion.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -25,11 +26,13 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 10
+    data_length = len(data_loader)
+    record_freq = 10
 
     for i, (samples, targets, _) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         bs = samples.tensors.shape[0]
         samples = samples.to(device)
-        targets = [{k: v.to(device) for k,v in t.items()} for t in targets]
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         # add the 3d model ground truth to the targets
         for t in targets:
@@ -63,6 +66,26 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         if max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
+
+        if not board_writer is None and i % record_freq == 0:
+            board_writer.add_scalar('Train/loss', loss_value, i + epoch * data_length)
+            board_writer.add_scalar('Train/class_loss', loss_dict_reduced_scaled['loss_ce'], i + epoch * data_length)
+            board_writer.add_scalar('Train/bbox_loss', loss_dict_reduced_scaled['loss_bbox'], i + epoch * data_length)
+            board_writer.add_scalar('Train/GIou_loss', loss_dict_reduced_scaled['loss_giou'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/model3d_scales_loss', loss_dict_reduced_scaled['model3d_scales'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/model3d_centers_loss', loss_dict_reduced_scaled['model3d_centers'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/model3d_points_loss', loss_dict_reduced_scaled['model3d_points'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/pose_6dof_class_loss', loss_dict_reduced_scaled['pose_6dof_class'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/pose_6dof_add_loss', loss_dict_reduced_scaled['pose_6dof_add'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/pose_6dof_fps_points_3d_loss', loss_dict_reduced_scaled['pose_6dof_fps_points_3d'],
+                                    i + epoch * data_length)
+            board_writer.add_scalar('Train/lr', optimizer.param_groups[0]["lr"], i + epoch * data_length)
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled, **loss_dict_reduced_unscaled)
         metric_logger.update(class_error=loss_dict_reduced['class_error'])

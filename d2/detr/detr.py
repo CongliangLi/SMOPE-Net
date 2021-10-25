@@ -144,7 +144,7 @@ class Detr(nn.Module):
             weight_dict.update(aux_weight_dict)
         losses = ["labels", "boxes", "cardinality"]
         if self.mask_on:
-            losses += ["masks"]
+            losses = losses + ["masks"]
         self.criterion = SetCriterion(
             self.num_classes, matcher=matcher, weight_dict=weight_dict, eos_coef=no_object_weight, losses=losses,
         )

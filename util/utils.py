@@ -449,7 +449,7 @@ def get_fps_points(model_3d_points, model_center_3d_point, fps_num=8):
         for point in model_3d_points:
             distance = 0.
             for fps in fps_3d_points:
-                distance += ((fps[0] - point[0]) ** 2 + (fps[1] - point[1]) ** 2 +
+                distance = distance + ((fps[0] - point[0]) ** 2 + (fps[1] - point[1]) ** 2 +
                              (fps[2] - point[2]) ** 2) ** 0.5
             if distance > farthest_point["distance"]:
                 farthest_point["point"] = point

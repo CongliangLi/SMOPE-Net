@@ -14,6 +14,7 @@ from .Model3DNet import Model3DNet
 import util.box_ops as box_ops
 from util.misc import NestedTensor, interpolate, inverse_sigmoid, nested_tensor_from_tensor_list
 
+
 class MHAttentionMap(nn.Module):
     """This is a 2D attention module, which only returns the attention softmax (no multiplication by value)"""
 
@@ -56,38 +57,35 @@ class PoseHeadSmallLinear(nn.Module):
         super().__init__()
         self.num_dims = num_dims
         self.num_heads = num_heads
-        
+
         self.l1 = nn.Linear(num_dims, num_dims)
         self.g1 = nn.GroupNorm(8, num_dims)
 
-        num_feat = num_dims+num_heads
+        num_feat = num_dims + num_heads
 
         #### for model class ####
         l2 = []
         num_l2 = 4
         for i in range(num_l2):
-            l2.append(nn.Linear(num_feat // (2**i), num_feat // (2**(i+1))))
+            l2.append(nn.Linear(num_feat // (2 ** i), num_feat // (2 ** (i + 1))))
             l2.append(nn.ReLU())
-        
+
         self.l2 = nn.Sequential(*l2)
-        self.l3 = nn.Linear(num_feat // (2**num_l2), 1)
+        self.l3 = nn.Linear(num_feat // (2 ** num_l2), 1)
 
         ####  for 6 dof ###
         l4 = []
         num_l4 = 4
         for i in range(num_l4):
-            l4.append(nn.Linear(num_feat // (2**i), num_feat // (2**(i+1))))
+            l4.append(nn.Linear(num_feat // (2 ** i), num_feat // (2 ** (i + 1))))
             l4.append(nn.ReLU())
         self.l4 = nn.Sequential(*l4)
-        self.l5 = nn.Linear(num_feat // (2**num_l4), 7)
-        
-        
+        self.l5 = nn.Linear(num_feat // (2 ** num_l4), 7)
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight.data, gain=nn.init.calculate_gain('relu'))
                 nn.init.constant_(m.bias.data, 0)
-        
 
     def forward(self, x: Tensor, attention: Tensor):
         x = self.l1(x)
@@ -106,7 +104,9 @@ class PoseHeadSmallLinear(nn.Module):
 
         ## make the quaternion obey the rules as follows
         ### w**2 + x**2 + y**2 + z**2 = 1
-        x_p[..., 3:] = x_p[..., 3:].softmax(dim=-1).sqrt()
+        x_f, x_l = torch.split(x_p, [3, 4], dim=-1)
+        x_l = x_l.softmax(dim=-1).sqrt()
+        x_p = torch.cat((x_f, x_l), dim=-1)
         return x_c, x_p
 
 
@@ -130,7 +130,7 @@ class DETRpose(nn.Module):
     def forward(self, samples: NestedTensor):
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
-        
+
         features, pos = self.detr.backbone(samples)
 
         bs = features[-1].tensors.shape[0]
@@ -176,5 +176,5 @@ class DETRpose(nn.Module):
         out["pred_model_points"] = pred_model_point[0]
         out["pred_model_scales"] = pred_model_point[1]
         out["pred_model_centers"] = pred_model_point[2]
-        
+
         return out

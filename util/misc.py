@@ -42,8 +42,8 @@ class SmoothedValue(object):
 
     def update(self, value, n=1):
         self.deque.append(value)
-        self.count += n
-        self.total += value * n
+        self.count = self.count + n
+        self.total = self.total + value * n
 
     def synchronize_between_processes(self):
         """
@@ -241,7 +241,7 @@ class MetricLogger(object):
                         i, len(iterable), eta=eta_string,
                         meters=str(self),
                         time=str(iter_time), data=str(data_time)))
-            i += 1
+            i = i + 1
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))

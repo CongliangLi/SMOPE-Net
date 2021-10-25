@@ -18,6 +18,8 @@ import torchvision.transforms as T
 import torchvision.transforms.functional as F
 
 from util.box_ops import box_xyxy_to_cxcywh
+
+
 # from util.misc import interpolate
 
 
@@ -272,11 +274,16 @@ class Normalize(object):
             return image, None
         target = target.copy()
         h, w = image.shape[-2:]
-        if "boxes" in target:
-            boxes = target["boxes"]
-            boxes = box_xyxy_to_cxcywh(boxes)
+        if "bboxes_2d" in target:
+            boxes = target["bboxes_2d"]
             boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
-            target["boxes"] = boxes
+            target["bboxes_2d"] = boxes
+
+        if "bboxes_3d" in target:
+            boxes = target["bboxes_3d"]
+            boxes = boxes / torch.tensor([[w, h] for _ in range(8)], dtype=torch.float32)
+            target["bboxes_3d"] = boxes
+
         return image, target
 
 

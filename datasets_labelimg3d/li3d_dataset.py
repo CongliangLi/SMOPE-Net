@@ -43,7 +43,7 @@ class SingleAnnotationParser:
 
         self.R_matrix_c2o, self.R_quaternion_c2o, self.R_euler_c2o = [], [], []
         self.T_matrix_c2o = []
-        self.class_ids =[]
+        self.class_ids = []
 
         for i in range(int(annotation_data["model"]["num"])):
             self.model_ids.append(annotation_data["model"][str(i)]["class"] - 1)
@@ -53,7 +53,7 @@ class SingleAnnotationParser:
             self.bboxes_3d.append(annotation_data["model"][str(i)]["3d_bbox"])
             self.bboxes_3d_w.append(annotation_data["model"][str(i)]["3d_bbox_w"])
             self.T_matrix_c2o.append(annotation_data["model"][str(i)]["T_matrix_c2o"])
-            
+
             self.R_matrix_c2o.append(annotation_data["model"][str(i)]["R_matrix_c2o"])
             self.R_quaternion_c2o.append(RMatrix_2_RQuaternion(
                 np.array(annotation_data["model"][str(i)]["R_matrix_c2o"]).reshape(3, 3)).tolist())
@@ -64,13 +64,14 @@ class SingleAnnotationParser:
         img = Image.open(self.img_path)
         boxes = torch.tensor(self.bboxes_2d)
         targets = {
-            'bboxes_2d': torch.cat([(boxes[:, :2] + boxes[:, 2:])/2, boxes[:, 2:] - boxes[:, :2]], dim=1) if len(boxes) != 0 else boxes, # convert to cxcywh
+            'bboxes_2d': torch.cat([(boxes[:, :2] + boxes[:, 2:]) / 2, boxes[:, 2:] - boxes[:, :2]], dim=1) if len(
+                boxes) != 0 else boxes,  # convert to cxcywh
             "bboxes_3d": torch.tensor(self.bboxes_3d),
-            "bboxes_3d_w":torch.tensor(self.bboxes_3d_w),
+            "bboxes_3d_w": torch.tensor(self.bboxes_3d_w),
             "model_ids": torch.tensor(self.model_ids),
             "class_ids": torch.tensor(self.class_ids),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o),
-            "R_quaternion_c2o": torch.Tensor(self.R_quaternion_c2o), 
+            "R_quaternion_c2o": torch.Tensor(self.R_quaternion_c2o),
             # "R_euler_c2o": torch.tensor(self.R_euler_c2o),
             'orig_size': torch.tensor(self.orig_size)
         }
@@ -115,8 +116,8 @@ class Li3dDataset(Dataset):
         for path in pbar:
             pbar.set_description(f'reading: {path}')
             an_path = os.path.join(self.anno_folder, path.split("/")[-1].split(".")[0] + ".json")
-            self.data += [SingleAnnotationParser(path, an_path).__getitem__()]
-            self.lens += 1
+            self.data = self.data + [SingleAnnotationParser(path, an_path).__getitem__()]
+            self.lens = self.lens + 1
 
     def __len__(self):
         return self.lens
@@ -138,7 +139,7 @@ class Li3dDataset(Dataset):
 def make_transforms(image_set):
     normalize = T.Compose([
         T.ToTensor(),
-        T.Normalize(config["pixel_mean"],config["pixel_std"])
+        T.Normalize(config["pixel_mean"], config["pixel_std"])
     ])
 
     scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
