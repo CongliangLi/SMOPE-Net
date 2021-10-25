@@ -127,7 +127,7 @@ def resize(image, target, size, max_size=None):
 
     if "bboxes_3d" in target:
         boxes = target["bboxes_3d"]
-        scaled_boxes = boxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
+        scaled_boxes = boxes * torch.as_tensor([[ratio_width, ratio_height] for _ in range(8)])
         target["bboxes_3d"] = scaled_boxes
 
     if "area" in target:

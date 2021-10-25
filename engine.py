@@ -16,7 +16,8 @@ from datasets.panoptic_eval import PanopticEvaluator
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, max_norm: float = 0):
+                    device: torch.device, epoch: int, max_norm: float = 0,
+                    writer=None):
     model.train()
     criterion.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -35,6 +36,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             t["model_scales"] = model.model_3d_net.scale_list
             t["model_centers"] = model.model_3d_net.center_list
             t["model_points"] = model.model_3d_net.meshes
+            t["fps_points"] = model.model_3d_net.fps_points
 
         outputs = model(samples)
         loss_dict = criterion(outputs, targets)

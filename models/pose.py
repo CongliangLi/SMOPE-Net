@@ -79,7 +79,7 @@ class PoseHeadSmallLinear(nn.Module):
             l4.append(nn.Linear(num_feat // (2**i), num_feat // (2**(i+1))))
             l4.append(nn.ReLU())
         self.l4 = nn.Sequential(*l4)
-        self.l5 = nn.Linear(num_feat // (2**num_l4), 6)
+        self.l5 = nn.Linear(num_feat // (2**num_l4), 7)
         
         
 
@@ -104,6 +104,9 @@ class PoseHeadSmallLinear(nn.Module):
         x_p = self.l4(x)
         x_p = self.l5(x_p)
 
+        ## make the quaternion obey the rules as follows
+        ### w**2 + x**2 + y**2 + z**2 = 1
+        x_p[..., 3:] = x_p[..., 3:].softmax(dim=-1).sqrt()
         return x_c, x_p
 
 

@@ -35,9 +35,10 @@ class Model3DNet(nn.Module):
         # load the 3d model
         self.model_path_list = model_path_list
         self.device = device
-        self.meshes, self.scale_list, self.center_list = self.load_models()
+        self.meshes, self.scale_list, self.center_list, self.fps_list = self.load_models()
         self.scale_list = torch.stack(self.scale_list)[:, None]
         self.center_list = torch.stack(self.center_list)
+        self.fps_points = torch.stack(self.fps_list)
 
         self.num_samples = num_samples
         self.num_hidden_feat = num_hidden_feat
@@ -134,11 +135,33 @@ class Model3DNet(nn.Module):
             verts = verts.to(device)
 
         center = verts.mean(0)
+
+        fps_points = Model3DNet.get_fps_points(verts, center)
         verts = verts - center
         scale = max(verts.abs().max(0)[0])
         verts = verts / scale
 
-        return verts, faces_idx, scale, center
+        return verts, faces_idx, scale, center, fps_points
+
+
+    @staticmethod
+    def get_fps_points(model_3d_points, model_center_3d_point, fps_num=8):
+        """
+        Args:
+            model_3d_points:  3D points of model in object coordinate  (numpy)
+            model_center_3d_point: 3D points of model center in object coordinate  (numpy)
+            fps_num: default 8
+
+        Returns:
+
+        """
+        fps_3d_points = model_center_3d_point[None, :]
+
+        for _ in range(fps_num):
+            index = ((fps_3d_points[:, None, :] - model_3d_points[None, :, :])**2).sum(dim=-1).sum(dim=0).argmax(dim=-1)
+            fps_3d_points = torch.cat([fps_3d_points, model_3d_points[index:index+1, :]], dim=0)
+
+        return fps_3d_points
 
     def load_models(self):
         verts_faces_list = [Model3DNet.load_one_model(p, self.device) for p in self.model_path_list]
@@ -146,8 +169,9 @@ class Model3DNet(nn.Module):
         faces_list = [vf[1] for vf in verts_faces_list]
         scale_list = [vf[2] for vf in verts_faces_list]
         center_list = [vf[3] for vf in verts_faces_list]
+        fps_points_list = [vf[4] for vf in verts_faces_list]
 
-        return Meshes(verts=verts_list, faces=faces_list), scale_list, center_list
+        return Meshes(verts=verts_list, faces=faces_list), scale_list, center_list, fps_points_list
 
     def get_loss(self, deform_verts_list,
                  pre_scales,

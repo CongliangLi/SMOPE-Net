@@ -3,40 +3,38 @@
   "dataset_path": "/mnt/data3/CongliangLi/DETR/data/kitti",
   "phase": "train",
   "class_num": 1,
-  "device": "cuda:3",
+  "device": "cuda:2",
   "seed": 42,
 
-  "pixel_mean": [113.16, 109.23, 107.20],
-  "pixel_var": [0.0327, 0.0306, 0.0347],
-  "num_motion_model_param": 12,
-  "image_width": 960,
-  "image_height": 540,
-  "detection_layer_num":3,
+  "image_width": 1224,
+  "image_height": 370,
+  "pixel_mean": [0.485, 0.456, 0.406],
+  "pixel_std": [0.229, 0.224, 0.225],
+
   "label_map": {
-    "Tram": 1,
-    "Car": 2,
-    "Truck": 3,
-    "Van": 4,
-    "Pedestrian": 5
+    "Tram": 0,
+    "Car": 1,
+    "Truck": 2,
+    "Van": 3,
+    "Pedestrian": 4
   },
   "replace_map": {
     "vehicle": 1
   },
   "model": {
     "model_name":["tram_001.obj", "car_001.obj", "truck_001.obj", "van_001.obj", "pedestrian_001.obj"],
-    "model_device": "cuda:3",
     "poses": true,
     "model_num_samples": 5000
   },
   "test": {
-    "resume": "../../logs/train/1006_1816_17/weights/Car.pth",
+    "resume": "",
     "dataset_type": "train",
     "batch_size": 1,
     "num_workers": 0,
     "lr_decay_per_epoch": [1, 30, 45, 50],
     "base_net_weights": null,
     "image_save_folder": "images",
-    "sequence_list": "./dataset/ua/sequence_list_train_llc.txt",
+    "sequence_list": "",
     "start_epoch": 0,
     "end_epoch": 1,
     "momentum": 0.9,
@@ -86,6 +84,8 @@
     "cls_loss_weight": 2,
     "bbox2d_loss_weight": 5,
     "giou_loss_weight": 2,
+    "model3d_loss_weight":1,
+    "pose6dof_loss_weight":1,
     "focal_alpha": 0.25,
 
     "model3d_scales_weight": 8.0,
@@ -95,6 +95,11 @@
     "model3d_edge_weight": 1.0,
     "model3d_normal_weight": 0.01,
     "model3d_laplacian_weight": 0.1,
+
+    "model_6dof_class_weight":1.0,
+    "model_6dof_add_weight":0.1,
+    "model_6dof_fps_points_weight":0.1,
+
 
     "tensorboard": true
   }

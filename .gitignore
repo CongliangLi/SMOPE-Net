@@ -14,4 +14,4 @@ experiment-*
 **/.mypy_cache/*
 .mypy_cache/*
 not_tracked_dir/
-.vscode
+.vscode/

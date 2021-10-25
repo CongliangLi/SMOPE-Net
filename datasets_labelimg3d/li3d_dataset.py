@@ -1,24 +1,28 @@
+import imp
+from numpy.ma.core import nomask
 import pandas as pd
 import torch
 from pathlib import Path
 import os
 import numpy as np
+from yaml import compose
 from configs import config
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import json
 import torchvision
+# from datasets.transforms import resize
 from util.utils import get_camera_intrinsics, RMatrix_2_RQuaternion, RQuaternion_2_RMatrix, RMatrix_2_REuler, \
     REuler_2_RMatrix, get_all_path
 from PIL import Image
 import datasets_labelimg3d.transforms as T
 from pytorch3d.io import load_obj, save_obj
 
+from configs import cfg, config
 
-train_cfg = config[config["phase"]]
 # Set the device
 if torch.cuda.is_available():
-    device = torch.device(config["model"]["model_device"])
+    device = torch.device(config["device"])
 else:
     device = torch.device("cpu")
     print("WARNING: CPU only when reading models, this will be slow!")
@@ -35,17 +39,21 @@ class SingleAnnotationParser:
         self.camera_matrix = get_camera_intrinsics(annotation_data["camera"]["fov"], self.orig_size)
         self.model_ids, self.class_names, self.bboxes_2d, self.bboxes_3d = [], [], [], []
 
+        self.bboxes_3d_w = []
+
         self.R_matrix_c2o, self.R_quaternion_c2o, self.R_euler_c2o = [], [], []
         self.T_matrix_c2o = []
         self.class_ids =[]
 
         for i in range(int(annotation_data["model"]["num"])):
-            self.model_ids.append(annotation_data["model"][str(i)]["class"])
+            self.model_ids.append(annotation_data["model"][str(i)]["class"] - 1)
             self.class_ids.append(1)
             self.class_names.append(annotation_data["model"][str(i)]["class_name"])
             self.bboxes_2d.append(annotation_data["model"][str(i)]["2d_bbox"])
             self.bboxes_3d.append(annotation_data["model"][str(i)]["3d_bbox"])
+            self.bboxes_3d_w.append(annotation_data["model"][str(i)]["3d_bbox_w"])
             self.T_matrix_c2o.append(annotation_data["model"][str(i)]["T_matrix_c2o"])
+            
             self.R_matrix_c2o.append(annotation_data["model"][str(i)]["R_matrix_c2o"])
             self.R_quaternion_c2o.append(RMatrix_2_RQuaternion(
                 np.array(annotation_data["model"][str(i)]["R_matrix_c2o"]).reshape(3, 3)).tolist())
@@ -58,10 +66,12 @@ class SingleAnnotationParser:
         targets = {
             'bboxes_2d': torch.cat([(boxes[:, :2] + boxes[:, 2:])/2, boxes[:, 2:] - boxes[:, :2]], dim=1) if len(boxes) != 0 else boxes, # convert to cxcywh
             "bboxes_3d": torch.tensor(self.bboxes_3d),
+            "bboxes_3d_w":torch.tensor(self.bboxes_3d_w),
             "model_ids": torch.tensor(self.model_ids),
             "class_ids": torch.tensor(self.class_ids),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o),
-            "R_euler_c2o": torch.tensor(self.R_euler_c2o),
+            "R_quaternion_c2o": torch.Tensor(self.R_quaternion_c2o), 
+            # "R_euler_c2o": torch.tensor(self.R_euler_c2o),
             'orig_size': torch.tensor(self.orig_size)
         }
         return img, targets
@@ -128,13 +138,16 @@ class Li3dDataset(Dataset):
 def make_transforms(image_set):
     normalize = T.Compose([
         T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        T.Normalize(config["pixel_mean"],config["pixel_std"])
     ])
 
     scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
 
     if image_set == 'train':
-        return T.Compose([normalize])
+        return T.Compose([
+            T.RandomResize([config["image_height"]], max_size=1333),
+            normalize,
+        ])
         # return T.Compose([
         #     T.RandomSelect(
         #         T.RandomResize(scales, max_size=1333),
@@ -148,11 +161,10 @@ def make_transforms(image_set):
         # ])
 
     if image_set == 'val':
-        return T.Compose([normalize])
-        # return T.Compose([
-        #     T.RandomResize([800], max_size=1333),
-        #     normalize,
-        # ])
+        return T.Compose([
+            T.RandomResize([config["image_height"]], max_size=1333),
+            normalize,
+        ])
 
     raise ValueError(f'unknown {image_set}')
 

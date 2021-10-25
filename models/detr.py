@@ -2,6 +2,7 @@
 """
 DETR model and criterion classes.
 """
+# from numpy import _ShapeType
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -18,6 +19,7 @@ from .segmentation import (DETRsegm, PostProcessPanoptic, PostProcessSegm,
                            dice_loss, sigmoid_focal_loss)
 from .transformer import build_transformer
 from configs import cfg, config
+import torchgeometry as tgm
 
 if config["model"]["poses"]:
     from pytorch3d.io import load_obj, save_obj
@@ -266,7 +268,6 @@ class SetCriterion(nn.Module):
         losses = {}
 
         src_idx = self._get_src_permutation_idx(indices)
-        tgt_idx = self._get_tgt_permutation_idx(indices)
 
         bs = outputs["pose_class"].shape[0]
         # 1. get model class loss
@@ -274,15 +275,72 @@ class SetCriterion(nn.Module):
         src_class = outputs["pose_class"]
         src_class = src_class[src_idx]
         # 1.2 get target model class
-        tgt_class_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)]) - 1
+        tgt_class_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)])
         
         # 1.3 get the model class loss
         loss_mc = F.cross_entropy(src_class[None, :].permute(0, 2, 1), tgt_class_o[None, :])
-        losses["pose6dof_class"] = loss_mc
+        losses["pose_6dof_class"] = loss_mc*cfg["model_6dof_class_weight"]
 
-        # 2. get 6dof loss
+        # 2. get 6Dof loss
+        # 2.1 get predict 6Dof
+        src_pose = outputs["pose_6dof"]
+        src_6dof_pose = src_pose[src_idx]
+        model_index = src_class.argmax(dim = -1)
+        src_6dof_pose = torch.stack([src_6dof_pose[i,j, :] for i, j in enumerate(model_index)],dim=0)
 
-        losses["pose6dof_pose"] = 0
+        src_6dof_t_pose = src_6dof_pose[:, :3]
+        src_6dof_r_pose = src_6dof_pose[:, 3:]
+        
+        
+        # 2.2 get target 6Dof pose
+        tgt_6dof_t_pose_o = torch.cat([t["T_matrix_c2o"][J] for t, (_, J) in zip(targets, indices)])
+        tgt_6dof_r_pose_o = torch.cat([t["R_quaternion_c2o"][J] for t, (_, J) in zip(targets, indices)])
+        # tgt_6dof_pose_o = torch.cat((tgt_6dof_t_pose_o, tgt_6dof_r_pose_o),dim=1)
+
+        tgt_bboxes_2d = torch.cat([t["bboxes_2d"][J] for t, (_, J) in zip(targets, indices)])
+        tgt_bboxes_3d_w = torch.cat([t["bboxes_3d_w"][J] for t, (_, J) in zip(targets, indices)])
+
+
+        # 2.3 get the model add loss
+        losses["pose_6dof_add"] = nn.L1Loss()(src_6dof_t_pose, tgt_6dof_t_pose_o) * cfg["model_6dof_add_weight"]
+
+        
+        #TODO: 2.4 get the model l1 loss of 3d bbox
+
+        # tgt_bboxes_3d_points = [[tgt_bboxes_3d_w[i][0], tgt_bboxes_3d_w[i][-1]]for i in range(tgt_bboxes_3d_w.shape[0])]
+        
+
+        # 2.5 get the model l1 loss of fps points
+        # 2.5.1 get the fps points in object coordinate
+        fps_points = targets[0]["fps_points"]
+        fps_points = torch.stack([fps_points[i, ...] for i in model_index], dim=0)
+        # fps_points = tgm.convert_points_to_homogeneous(fps_points)
+        
+        # 2.5.2 get the src matrix which can convert points from obj to camera
+
+        src_matrix = tgm.angle_axis_to_rotation_matrix(tgm.quaternion_to_angle_axis(src_6dof_r_pose))
+
+        src_matrix[:, :3, -1] = src_6dof_t_pose
+
+        # 2.5.3 convert fps_points from obj coord to camera coordinate by src matrix
+        src_fps_points_camera = tgm.transform_points(src_matrix, fps_points)
+
+        # 2.5.4 get the target matrix which can convert points from obj to camera
+        tgt_matrix = tgm.angle_axis_to_rotation_matrix(tgm.quaternion_to_angle_axis(tgt_6dof_r_pose_o))
+        tgt_matrix[:, :3, -1] = tgt_6dof_t_pose_o
+
+        # 2.5.5 convert fps_points from obj coord to camera coord by tgt matrix
+        tgt_fps_points_camera = tgm.transform_points(tgt_matrix, fps_points)
+
+        # 2.5.6 calcuate the l1 loss between target fps points and src fps points
+        losses["pose_6dof_fps_points_3d"] = nn.L1Loss()(src_fps_points_camera, tgt_fps_points_camera)*cfg["model_6dof_fps_points_weight"]
+
+        #TODO: 3 get the model bboxes_2d loss
+        # losses["pose_6dof_bboxes_2d"] = 0
+
+        #TODO: 4 get the 3d iou loss
+        # losses["pose_6dof_bboxes_3d"] = 0
+        
         return losses
         
 
@@ -342,6 +400,13 @@ class SetCriterion(nn.Module):
                     if loss == 'masks':
                         # Intermediate masks losses are too costly to compute, we ignore them.
                         continue
+                    
+                    if loss == "model3d":
+                        continue
+
+                    if loss == "pose6dof":
+                        continue
+
                     kwargs = {}
                     if loss == 'labels':
                         # Logging is enabled only for the last layer
@@ -439,6 +504,11 @@ def build(args):
     if args.masks:
         weight_dict["loss_mask"] = args.mask_loss_coef
         weight_dict["loss_dice"] = args.dice_loss_coef
+
+    if args.poses:
+        weight_dict["model3d"] = cfg["model3d_loss_weight"]
+        weight_dict["pose6dof"] = cfg["pose6dof_loss_weight"]
+    
 
     # TODO this is a hack
     if args.aux_loss:
