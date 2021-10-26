@@ -122,12 +122,12 @@ def resize(image, target, size, max_size=None):
     ratio_width, ratio_height = ratios
 
     target = target.copy()
-    if "bboxes_2d" in target:
+    if "bboxes_2d" in target and target["bboxes_2d"].size()[-1] != 0:
         boxes = target["bboxes_2d"]
         scaled_boxes = boxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
         target["bboxes_2d"] = scaled_boxes
 
-    if "bboxes_3d" in target:
+    if "bboxes_3d" in target and target["bboxes_3d"].size()[-1] != 0:
         boxes = target["bboxes_3d"]
         scaled_boxes = boxes * torch.as_tensor([[ratio_width, ratio_height] for _ in range(8)])
         target["bboxes_3d"] = scaled_boxes
@@ -274,12 +274,12 @@ class Normalize(object):
             return image, None
         target = target.copy()
         h, w = image.shape[-2:]
-        if "bboxes_2d" in target:
+        if "bboxes_2d" in target and target["bboxes_2d"].size()[-1] != 0:
             boxes = target["bboxes_2d"]
             boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
             target["bboxes_2d"] = boxes
 
-        if "bboxes_3d" in target:
+        if "bboxes_3d" in target and target["bboxes_3d"].size()[-1] != 0:
             boxes = target["bboxes_3d"]
             boxes = boxes / torch.tensor([[w, h] for _ in range(8)], dtype=torch.float32)
             target["bboxes_3d"] = boxes

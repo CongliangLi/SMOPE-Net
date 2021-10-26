@@ -68,8 +68,8 @@ class SingleAnnotationParser:
                 boxes) != 0 else boxes,  # convert to cxcywh
             "bboxes_3d": torch.tensor(self.bboxes_3d),
             "bboxes_3d_w": torch.tensor(self.bboxes_3d_w),
-            "model_ids": torch.tensor(self.model_ids),
-            "class_ids": torch.tensor(self.class_ids),
+            "model_ids": torch.tensor(self.model_ids).long(),
+            "class_ids": torch.tensor(self.class_ids).long(),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o),
             "R_quaternion_c2o": torch.Tensor(self.R_quaternion_c2o),
             # "R_euler_c2o": torch.tensor(self.R_euler_c2o),
