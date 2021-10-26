@@ -16,3 +16,5 @@ experiment-*
 not_tracked_dir/
 .vscode/
 .idea/
+.circleci/
+.github/
