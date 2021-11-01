@@ -20,7 +20,7 @@ def abs_join_path(path1, path2, is_create=True):
 # convert relative path to absolute path
 ROOT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 cfg = config[config["phase"]]
-cfg["output_dir"] = config[config["phase"]]["output_dir"]
+cfg["output_dir"] = config["output_dir"]
 if cfg["resume"] != "":
     cfg["resume"] = abs_join_path(ROOT_DIR, cfg["resume"])
 else:

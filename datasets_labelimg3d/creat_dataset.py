@@ -104,5 +104,5 @@ def creat_datasets(dataset_path, ratio=[2, 1, 1]):
 
 if __name__ == '__main__':
     dataset_path = "../../data/kitti"
-    creat_datasets(dataset_path)
+    creat_datasets(dataset_path, [2, 1, 17])
     print("finish creating datasets")

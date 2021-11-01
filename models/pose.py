@@ -9,7 +9,7 @@ from torch import Tensor
 from PIL import Image
 from torch.nn.modules import padding
 
-from .Model3DNet import Model3DNet
+from models.Model3DNet import Model3DNet
 
 import util.box_ops as box_ops
 from util.misc import NestedTensor, interpolate, inverse_sigmoid, nested_tensor_from_tensor_list
@@ -178,3 +178,52 @@ class DETRpose(nn.Module):
         out["pred_model_centers"] = pred_model_point[2]
 
         return out
+
+
+class PostProcessPose(nn.Module):
+    """ This module converts the model's output into the display formate"""
+
+    @torch.no_grad()
+    def forward(self, outputs, target_sizes):
+        """ Perform the computation
+        Parameters:
+            outputs: raw outputs of the model
+            target_sizes: tensor of dimension [batch_size x 2] containing the size of each images of the batch
+                          For evaluation, this must be the original image size (before any data augmentation)
+                          For visualization, this should be the image size after data augment, but before padding
+        """
+        out_logits, out_bboxes_2d, out_pose_class, out_pose_6dof, out_pred_model_points, out_pred_model_scales, out_pred_model_centers = \
+            outputs['pred_logits'], outputs['pred_boxes'], outputs["pose_class"], outputs["pose_6dof"], outputs[
+                "pred_model_points"], outputs["pred_model_scales"], outputs["pred_model_centers"]
+
+        assert len(out_logits) == len(target_sizes)
+        assert target_sizes.shape[1] == 2
+
+        prob = F.softmax(out_logits, -1)
+        scores, labels = prob.max(-1)
+
+        # convert to [x0, y0, x1, y1] format
+        # boxes = box_ops.box_cxcywh_to_xyxy(out_bboxes_2d)
+        # and from relative [0, 1] to absolute [0, height] coordinates
+        # img_h, img_w = target_sizes.unbind(1)
+        # scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
+        # boxes = boxes * scale_fct[:, None, :]
+
+        src_results = [
+            {
+                'scores': s, 'labels': l, 'bboxes_2d': b, "pose_class": p_s, "pose_6dof": p_6dof
+            }
+            for s, l, b, p_s, p_6dof
+            in zip(scores, labels, out_bboxes_2d, out_pose_class, out_pose_6dof)
+        ]
+
+        model_results = [
+            {
+                "pred_model_points": m_p, "pred_model_scales": m_s, "pred_model_centers": m_c
+            }
+            for m_p, m_s, m_c
+            in zip(out_pred_model_points, out_pred_model_scales, out_pred_model_centers)
+        ]
+
+        return src_results, model_results
+

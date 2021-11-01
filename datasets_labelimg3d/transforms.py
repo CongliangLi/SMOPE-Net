@@ -140,10 +140,6 @@ def resize(image, target, size, max_size=None):
     h, w = size
     target["size"] = torch.tensor([h, w])
 
-    if "masks" in target:
-        target['masks'] = interpolate(
-            target['masks'][:, None].float(), size, mode="nearest")[:, 0] > 0.5
-
     return rescaled_image, target
 
 
@@ -269,7 +265,7 @@ class Normalize(object):
         self.std = std
 
     def __call__(self, image, target=None):
-        image = F.normalize(image, mean=self.mean, std=self.std)
+        # image = F.normalize(image, mean=self.mean, std=self.std)
         if target is None:
             return image, None
         target = target.copy()
@@ -277,6 +273,11 @@ class Normalize(object):
         if "bboxes_2d" in target and target["bboxes_2d"].size()[-1] != 0:
             boxes = target["bboxes_2d"]
             boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
+
+            for i in range(boxes.shape[0]):
+                for j in range(boxes.shape[1]):
+                    if boxes[i][j] > 1:
+                        boxes[i][j] = 1
             target["bboxes_2d"] = boxes
 
         if "bboxes_3d" in target and target["bboxes_3d"].size()[-1] != 0:
@@ -285,6 +286,24 @@ class Normalize(object):
             target["bboxes_3d"] = boxes
 
         return image, target
+
+
+class NormalizeInverse(T.Normalize):
+    def __init__(self, mean, std):
+        mean = torch.as_tensor(mean)
+        std = torch.as_tensor(std)
+        std_inv = 1 / (std + 1e-7)
+        mean_inv = -mean * std_inv
+        super().__init__(mean=mean_inv, std=std_inv)
+
+    def __call__(self, image: torch.Tensor, boxes: torch.Tensor = None):
+        image = super().__call__(image.clone()).permute(1, 2, 0)
+        h, w = image.shape[:2]
+        boxes = boxes.clone().cpu().detach()
+        if boxes is not None:
+            boxes = boxes * torch.tensor([w, h, w, h], dtype=torch.float32)
+            boxes = boxes
+        return image.cpu().detach(), boxes
 
 
 class Compose(object):

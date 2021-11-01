@@ -14,14 +14,14 @@ from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
 
 from .backbone import build_backbone
 from .matcher import build_matcher
-from .pose import DETRpose
+from .pose import DETRpose, PostProcessPose
 from .segmentation import (DETRsegm, PostProcessPanoptic, PostProcessSegm,
                            dice_loss, sigmoid_focal_loss)
 from .transformer import build_transformer
 from configs import cfg, config
 import torchgeometry as tgm
 
-if config["model"]["poses"]:
+if config["poses"]:
     from pytorch3d.io import load_obj, save_obj
     from pytorch3d.structures import Meshes
     from pytorch3d.utils import ico_sphere
@@ -132,11 +132,41 @@ class SetCriterion(nn.Module):
 
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["class_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
+        target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
 
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        src_prob = src_logits.softmax(-1)
+
+
+        ### debug
+        fore_src = src_logits.argmax(-1)       
+        pred_fore_num = (fore_src != self.num_classes).sum().item()
+        matched_correct_num = (fore_src[idx] == target_classes_o).sum().item()
+        
+        matched_error = (fore_src[idx] != target_classes_o).nonzero(as_tuple=True)[0]
+        matched_error_idx = (idx[0][matched_error], idx[1][matched_error])
+        
+        pred_fore_idx = (fore_src != self.num_classes).nonzero(as_tuple=True)
+        fake_fore = [i for i, x in enumerate(pred_fore_idx[1]) if x not in idx[1].tolist()]
+        fake_idx = (pred_fore_idx[0][fake_fore], pred_fore_idx[1][fake_fore])
+
+
+        ###
+
+        ### debug
+        fake_trace_avg_prob = src_prob[fake_idx][..., 0].mean().item()
+        tgt_trace_avg_prob = src_prob[idx][..., 0].mean().item()
+        missed_trace_avg_prob = src_prob[matched_error_idx][..., 0].mean().item()
+
+        ### debug
+
+
+        src_logits = src_prob.log()
+        src_logits *= (1 - src_prob) ** 1
+        loss = nn.NLLLoss(weight=self.empty_weight, reduction='sum')
+        loss_ce = loss(src_logits.transpose(1, 2), target_classes)
+
+        # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         losses = {'loss_ce': loss_ce}
 
         if log:
@@ -298,7 +328,7 @@ class SetCriterion(nn.Module):
         # 2.2 get target 6Dof pose
         tgt_6dof_t_pose_o = torch.cat([t["T_matrix_c2o"][J] for t, (_, J) in zip(targets, indices)])
         tgt_6dof_r_pose_o = torch.cat([t["R_quaternion_c2o"][J] for t, (_, J) in zip(targets, indices)])
-        tgt_6dof_pose_o = torch.cat((tgt_6dof_t_pose_o, tgt_6dof_r_pose_o),dim=1)
+        tgt_6dof_pose_o = torch.cat((tgt_6dof_t_pose_o, tgt_6dof_r_pose_o), dim=1)
 
         tgt_bboxes_2d = torch.cat([t["bboxes_2d"][J] for t, (_, J) in zip(targets, indices)])
         tgt_bboxes_3d_w = torch.cat([t["bboxes_3d_w"][J] for t, (_, J) in zip(targets, indices)])
@@ -438,15 +468,15 @@ class PostProcess(nn.Module):
         scores, labels = prob[..., :-1].max(-1)
 
         # convert to [x0, y0, x1, y1] format
-        boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
+        # boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
         # and from relative [0, 1] to absolute [0, height] coordinates
-        img_h, img_w = target_sizes.unbind(1)
-        scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
-        boxes = boxes * scale_fct[:, None, :]
+        # img_h, img_w = target_sizes.unbind(1)
+        # scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
+        # boxes = boxes * scale_fct[:, None, :]
 
-        results = [{'scores': s, 'labels': l, 'boxes': b} for s, l, b in zip(scores, labels, boxes)]
+        results = [{'scores': s, 'labels': l, 'bboxes_2d': b} for s, l, b in zip(scores, labels, out_bbox)]
 
-        return results
+        return results, None
 
 
 class MLP(nn.Module):
@@ -477,7 +507,6 @@ def build(args):
     #     num_classes = 5
     # else:
     num_classes = config["class_num"]
-    device = torch.device(config["device"])
 
     device = torch.device(args.device)
 
@@ -494,24 +523,24 @@ def build(args):
     )
 
     if args.poses:
-        model = DETRpose(model, freeze_detr=(cfg["frozen_weights"] is not None))
+        model = DETRpose(model, freeze_detr=(args.frozen_weights is not None))
 
-    matcher = build_matcher(cfg)
-    weight_dict = {'loss_ce': cfg["cls_loss_weight"],
-                   'loss_bbox': cfg["bbox2d_loss_weight"],
-                   'loss_giou': cfg["giou_loss_weight"]}
+    matcher = build_matcher(args)
+    weight_dict = {'loss_ce': args.cls_loss_weight,
+                   'loss_bbox': args.bbox2d_loss_weight,
+                   'loss_giou': args.giou_loss_weight}
 
     if args.masks:
         weight_dict["loss_mask"] = args.mask_loss_coef
         weight_dict["loss_dice"] = args.dice_loss_coef
 
     if args.poses:
-        weight_dict["model3d_scales"] = cfg["model3d_scales_weight"]
-        weight_dict["model3d_centers"] = cfg["model3d_centers_weight"]
-        weight_dict["model3d_points"] = cfg["model3d_points_weight"]
-        weight_dict["pose_6dof_class"] = cfg["model_6dof_class_weight"]
-        weight_dict["pose_6dof_add"] = cfg["model_6dof_add_weight"]
-        weight_dict["pose_6dof_fps_points_3d"] = cfg["model_6dof_fps_points_weight"]
+        weight_dict["model3d_scales"] = args.model3d_scales_weight
+        weight_dict["model3d_centers"] = args.model3d_centers_weight
+        weight_dict["model3d_points"] = args.model3d_points_weight
+        weight_dict["pose_6dof_class"] = args.model_6dof_class_weight
+        weight_dict["pose_6dof_add"] = args.model_6dof_add_weight
+        weight_dict["pose_6dof_fps_points_3d"] = args.model_6dof_fps_points_weight
 
     # TODO this is a hack
     if args.aux_loss:
@@ -527,10 +556,14 @@ def build(args):
 
     if args.masks:
         losses = losses + ["masks"]
+
     criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
                              eos_coef=args.eos_coef, losses=losses)
     criterion.to(device)
     postprocessors = {'bbox': PostProcess()}
+    if args.poses:
+        postprocessors = {"pose": PostProcessPose()}
+
     if args.masks:
         postprocessors['segm'] = PostProcessSegm()
         if args.dataset_file == "coco_panoptic":

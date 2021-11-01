@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from packaging.version import parse
 import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
@@ -24,6 +25,30 @@ import os
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
 
+    parser.add_argument("--phase", default=config["phase"], type=str)
+
+    # dataset parameters
+    parser.add_argument("--dataset_name", default=config["dataset_name"], type=str)
+    parser.add_argument("--dataset_path", default=config["dataset_path"], type=str)
+    parser.add_argument("--class_num", default=config["class_num"], type=str)
+
+    parser.add_argument('--output_dir', default=config["output_dir"],
+                        help='path where to save, empty for no saving')
+    parser.add_argument('--device', default=config["device"],
+                        help='device to use for training / testing')
+
+    parser.add_argument('--batch_size', default=cfg["batch_size"], help='batch_size')
+
+    parser.add_argument('--seed', default=config["seed"], type=int)
+    parser.add_argument('--resume', default=cfg["resume"], help='resume from checkpoint')
+    parser.add_argument('--start_epoch', default=cfg["start_epoch"], type=int, metavar='N',
+                        help='start epoch')
+    parser.add_argument('--end_epoch', default=cfg["end_epoch"], type=int, metavar='N',
+                        help='end epoch')
+    parser.add_argument('--eval', default=config["eval"])
+    parser.add_argument('--num_workers', default=cfg["num_workers"], type=int)
+
+    parser.add_argument('--lr', default=cfg["lr"], type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
     parser.add_argument('--lr_drop', default=200, type=int)
@@ -31,7 +56,7 @@ def get_args_parser():
                         help='gradient clipping max norm')
 
     # Model parameters
-    parser.add_argument('--frozen_weights', type=str, default=None,
+    parser.add_argument('--frozen_weights', type=str, default=cfg["frozen_weights"],
                         help="Path to the pretrained model. If set, only the mask head will be trained")
     # * Backbone
     parser.add_argument('--backbone', default='resnet50', type=str,
@@ -64,48 +89,50 @@ def get_args_parser():
 
     # * poses
     parser.add_argument('--poses', action='store_true',
-                        default=config["model"]["poses"],
+                        default=config["poses"],
                         help="Train segmentation head if the flag is provided")
 
     # Loss
-    parser.add_argument('--no_aux_loss', dest='aux_loss', action='store_false',
+    parser.add_argument('--aux_loss',  default=cfg["aux_loss"],
                         help="Disables auxiliary decoding losses (loss at each layer)")
     # * Matcher
-    parser.add_argument('--set_cost_class', default=1, type=float,
+    parser.add_argument('--matcher_cost_class', default=cfg["matcher_cost_class"], type=float,
                         help="Class coefficient in the matching cost")
-    parser.add_argument('--set_cost_bbox', default=5, type=float,
+    parser.add_argument('--matcher_cost_bbox', default=cfg["matcher_cost_bbox"], type=float,
                         help="L1 box coefficient in the matching cost")
-    parser.add_argument('--set_cost_giou', default=2, type=float,
+    parser.add_argument('--matcher_cost_giou', default=cfg["matcher_cost_giou"], type=float,
                         help="giou box coefficient in the matching cost")
     # * Loss coefficients
-    parser.add_argument('--mask_loss_coef', default=1, type=float)
-    parser.add_argument('--dice_loss_coef', default=1, type=float)
-    parser.add_argument('--bbox_loss_coef', default=5, type=float)
-    parser.add_argument('--giou_loss_coef', default=2, type=float)
-    parser.add_argument('--eos_coef', default=0.1, type=float,
+    parser.add_argument('--focal_alpha', default=cfg["focal_alpha"], type=float)
+
+    parser.add_argument('--cls_loss_weight', default=cfg["cls_loss_weight"], type=float)
+    parser.add_argument('--bbox2d_loss_weight', default=cfg["bbox2d_loss_weight"], type=float)
+    parser.add_argument('--giou_loss_weight', default=cfg["giou_loss_weight"], type=float)
+    parser.add_argument('--model3d_loss_weight', default=cfg["model3d_loss_weight"], type=float)
+    parser.add_argument('--pose6dof_loss_weight', default=cfg["pose6dof_loss_weight"], type=float)
+    parser.add_argument('--model3d_scales_weight', default=cfg["model3d_scales_weight"], type=float)
+    parser.add_argument('--model3d_centers_weight', default=cfg["model3d_centers_weight"], type=float)
+    parser.add_argument('--model3d_points_weight', default=cfg["model3d_points_weight"], type=float)
+    parser.add_argument('--model3d_chamfer_weight', default=cfg["model3d_chamfer_weight"], type=float)
+    parser.add_argument('--model3d_edge_weight', default=cfg["model3d_edge_weight"], type=float)
+    parser.add_argument('--model3d_normal_weight', default=cfg["model3d_normal_weight"], type=float)
+    parser.add_argument('--model3d_laplacian_weight', default=cfg["model3d_laplacian_weight"], type=float)
+    parser.add_argument('--model_6dof_class_weight', default=cfg["model_6dof_class_weight"], type=float)
+    parser.add_argument('--model_6dof_add_weight', default=cfg["model_6dof_add_weight"], type=float)
+    parser.add_argument('--model_6dof_fps_points_weight', default=cfg["model_6dof_fps_points_weight"], type=float)
+    parser.add_argument('--eos_coef', default=cfg["eos_coef"], type=float,
                         help="Relative classification weight of the no-object class")
-
-    # dataset parameters
-    parser.add_argument('--dataset_file', default='coco')
-    parser.add_argument('--coco_path', type=str)
-    parser.add_argument('--coco_panoptic_path', type=str)
-    parser.add_argument('--remove_difficult', action='store_true')
-
-    parser.add_argument('--output_dir', default='',
-                        help='path where to save, empty for no saving')
-    parser.add_argument('--device', default='cuda:2',
-                        help='device to use for training / testing')
-    parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--resume', default='', help='resume from checkpoint')
-    parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
-                        help='start epoch')
-    parser.add_argument('--eval', action='store_true')
-    parser.add_argument('--num_workers', default=2, type=int)
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+
+    # Tensorboard
+    parser.add_argument('--tensorboard', default=cfg["tensorboard"], type=bool)
+
+    parser.add_argument("--is_show_result", default=config["is_show_result"], type=bool)
+
     return parser
 
 
@@ -164,7 +191,7 @@ def main(args):
     data_loader_val = DataLoader(dataset_val, cfg["batch_size"], sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=cfg["num_workers"])
 
-    if args.dataset_file == "kitti":
+    if args.dataset_name == "kitti" or "UA-DETRAC":
         base_ds = get_orig_data_from_dataset(dataset_val)
 
     if args.frozen_weights is not None:
@@ -172,47 +199,48 @@ def main(args):
         model_without_ddp.detr.load_state_dict(checkpoint['model'])
 
     output_dir = Path(cfg["output_dir"])
-    if cfg["resume"]:
-        if cfg["resume"].startswith('https'):
+    if args.resume:
+        if args.resume.startswith('https'):
             checkpoint = torch.hub.load_state_dict_from_url(
-                cfg["resume"], map_location='cpu', check_hash=True)
+                args.resume, map_location='cpu', check_hash=True)
         else:
-            checkpoint = torch.load(cfg["resume"], map_location='cpu')
+            checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-            cfg["start_epoch"] = checkpoint['epoch'] + 1
+            args.start_epoch = checkpoint['epoch'] + 1
 
     # evaluator
-    # if args.eval:
-    #     test_stats, coco_evaluator = evaluate(model, criterion, postprocessors,
-    #                                           data_loader_val, base_ds, device, cfg["output_dir"])
-    #     if args.output_dir:
-    #         utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
-    #     return
+    if args.eval:
+        test_stats, li3d_evaluator = evaluate(model, criterion, postprocessors,
+                                              data_loader_val, base_ds, device, cfg["output_dir"], args)
+    #     # if args.output_dir:
+        #     utils.save_on_master(li3d_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
+        return
 
     writer = None
-    if cfg["tensorboard"]:
-        if cfg["output_dir"] is not None:
-            writer = SummaryWriter(os.path.join(cfg["output_dir"], "tensorboard"))
+    if args.tensorboard:
+        if args.board_path is not None:
+            writer = SummaryWriter(args.board_path)
         else:
             writer = SummaryWriter(os.path.join(os.getcwd(), "tensorboard"))
 
     print("Start training")
     start_time = time.time()
-    for epoch in range(cfg["start_epoch"], cfg["end_epoch"]):
+    for epoch in range(args.start_epoch, args.end_epoch):
         if args.distributed:
             sampler_train.set_epoch(epoch)
         train_stats = train_one_epoch(
             model, criterion, data_loader_train, optimizer, device, epoch,
-            args.clip_max_norm, writer)
+            args, writer)
         lr_scheduler.step()
-        if args.output_dir:
-            checkpoint_paths = [output_dir / 'checkpoint.pth']
+        if args.checkpoint_paths:
+            checkpoint_paths = [Path(args.checkpoint_paths)/'checkpoint.pth']
+
             # extra checkpoint before LR drop and every 100 epochs
-            if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % 100 == 0:
-                checkpoint_paths.append(output_dir / f'checkpoint{epoch:04}.pth')
+            if (epoch + 1) % args.lr_drop == 0 or epoch % 5 == 0:
+                checkpoint_paths.append(Path(args.checkpoint_paths)/ f'checkpoint{epoch:04}.pth')
             for checkpoint_path in checkpoint_paths:
                 utils.save_on_master({
                     'model': model_without_ddp.state_dict(),
@@ -222,16 +250,13 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
-        # test_stats, coco_evaluator = evaluate(
-        #     model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
-        # )
-
-        # log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-        #              **{f'test_{k}': v for k, v in test_stats.items()},
-        #              'epoch': epoch,
-        #              'n_parameters': n_parameters}
+        if epoch % 1 == 0:
+            test_stats, li3d_evaluator = evaluate(
+                model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir, args, epoch
+            )
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                     # **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
 
@@ -240,7 +265,7 @@ def main(args):
                 f.write(json.dumps(log_stats) + "\n")
 
             # for evaluation logs
-            # if coco_evaluator is not None:
+            # if li3d_evaluator is not None:
             #     (output_dir / 'eval').mkdir(exist_ok=True)
             #     if "bbox" in coco_evaluator.coco_eval:
             #         filenames = ['latest.pth']
@@ -258,6 +283,21 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
-    if cfg["output_dir"]:
-        Path(cfg["output_dir"]).mkdir(parents=True, exist_ok=True)
+    if args.output_dir:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    if args.tensorboard and args.output_dir is not None:
+        args.board_path = Path(os.path.join(args.output_dir, "tensorboard")) / f'{args.backbone}_{args.dataset_name}_b{args.batch_size}_lr{args.lr}_nq{args.num_queries}_alpha{args.focal_alpha}'
+        args.board_path.mkdir(parents=True, exist_ok=True)
+
+    if args.output_dir:
+        args.checkpoint_paths = os.path.join(args.output_dir, "checkpoints")
+
+        if not os.path.exists(args.checkpoint_paths):
+            os.makedirs(args.checkpoint_paths)
+
+    if args.output_dir and args.is_show_result:
+        args.result_path = os.path.join(args.output_dir, "results")
+        if not os.path.exists(args.result_path):
+            os.makedirs(args.result_path)
+
     main(args)

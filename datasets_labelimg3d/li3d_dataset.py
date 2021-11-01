@@ -1,4 +1,3 @@
-import imp
 from numpy.ma.core import nomask
 import pandas as pd
 import torch
@@ -28,6 +27,9 @@ else:
     print("WARNING: CPU only when reading models, this will be slow!")
 
 
+CLASSES = ['Tram', 'Car', 'Truck', "Van", "Pedestrian"]
+
+
 class SingleAnnotationParser:
     def __init__(self, img_path, annotation_path):
         annotation_data = json.loads(pd.read_json(annotation_path, orient="records").to_json())
@@ -47,7 +49,7 @@ class SingleAnnotationParser:
 
         for i in range(int(annotation_data["model"]["num"])):
             self.model_ids.append(annotation_data["model"][str(i)]["class"] - 1)
-            self.class_ids.append(1)
+            self.class_ids.append(0)
             self.class_names.append(annotation_data["model"][str(i)]["class_name"])
             self.bboxes_2d.append(annotation_data["model"][str(i)]["2d_bbox"])
             self.bboxes_3d.append(annotation_data["model"][str(i)]["3d_bbox"])
@@ -146,7 +148,7 @@ def make_transforms(image_set):
 
     if image_set == 'train':
         return T.Compose([
-            T.RandomResize([config["image_height"]], max_size=1333),
+            T.RandomResize([config["image_height"]]),
             normalize,
         ])
         # return T.Compose([
@@ -156,14 +158,14 @@ def make_transforms(image_set):
         #             T.RandomResize([400, 500, 600]),
         #             T.RandomSizeCrop(384, 600),
         #             T.RandomResize(scales, max_size=1333),
-        #         ])
+        #         ])CLASSES = ['vehicle', 'bus/van', 'others']
         #     ),
         #     normalize,
         # ])
 
     if image_set == 'val':
         return T.Compose([
-            T.RandomResize([config["image_height"]], max_size=1333),
+            T.RandomResize([config["image_height"]]),
             normalize,
         ])
 

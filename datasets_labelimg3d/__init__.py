@@ -1,4 +1,5 @@
 from .li3d_dataset import Li3dDataset
+from .li3d_dataset import CLASSES as KITTI_CLASSES
 from .li3d_dataset import build as build_li3d
 
 
