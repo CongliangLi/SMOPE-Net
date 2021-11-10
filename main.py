@@ -49,9 +49,9 @@ def get_args_parser():
     parser.add_argument('--num_workers', default=cfg["num_workers"], type=int)
 
     parser.add_argument('--lr', default=cfg["lr"], type=float)
-    parser.add_argument('--lr_backbone', default=1e-5, type=float)
-    parser.add_argument('--weight_decay', default=1e-4, type=float)
-    parser.add_argument('--lr_drop', default=200, type=int)
+    parser.add_argument('--lr_backbone', default=cfg["lr_backbone"], type=float)
+    parser.add_argument('--weight_decay', default=cfg["weight_decay"], type=float)
+    parser.add_argument('--lr_drop', default=cfg["lr_drop"], type=int)
     parser.add_argument('--clip_max_norm', default=0.1, type=float,
                         help='gradient clipping max norm')
 
@@ -104,6 +104,8 @@ def get_args_parser():
                         help="giou box coefficient in the matching cost")
     # * Loss coefficients
     parser.add_argument('--focal_alpha', default=cfg["focal_alpha"], type=float)
+    parser.add_argument("--focal_gamma", default=cfg["focal_gamma"],type=float)
+
 
     parser.add_argument('--cls_loss_weight', default=cfg["cls_loss_weight"], type=float)
     parser.add_argument('--bbox2d_loss_weight', default=cfg["bbox2d_loss_weight"], type=float)
@@ -120,8 +122,7 @@ def get_args_parser():
     parser.add_argument('--model_6dof_class_weight', default=cfg["model_6dof_class_weight"], type=float)
     parser.add_argument('--model_6dof_add_weight', default=cfg["model_6dof_add_weight"], type=float)
     parser.add_argument('--model_6dof_fps_points_weight', default=cfg["model_6dof_fps_points_weight"], type=float)
-    parser.add_argument('--eos_coef', default=cfg["eos_coef"], type=float,
-                        help="Relative classification weight of the no-object class")
+                       
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -132,6 +133,7 @@ def get_args_parser():
     parser.add_argument('--tensorboard', default=cfg["tensorboard"], type=bool)
 
     parser.add_argument("--is_show_result", default=config["is_show_result"], type=bool)
+    parser.add_argument("--plot_threshold", default=config["plot_threshold"], type=float)
 
     return parser
 
@@ -169,7 +171,7 @@ def main(args):
             "lr": args.lr_backbone,
         },
     ]
-    optimizer = torch.optim.AdamW(param_dicts, lr=cfg["lr"],
+    optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
                                   weight_decay=args.weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
 
@@ -231,6 +233,8 @@ def main(args):
     for epoch in range(args.start_epoch, args.end_epoch):
         if args.distributed:
             sampler_train.set_epoch(epoch)
+
+
         train_stats = train_one_epoch(
             model, criterion, data_loader_train, optimizer, device, epoch,
             args, writer)
@@ -250,7 +254,7 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
-        if epoch % 1 == 0:
+        if epoch % 5 == 0:
             test_stats, li3d_evaluator = evaluate(
                 model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir, args, epoch
             )
@@ -261,12 +265,12 @@ def main(args):
                      'n_parameters': n_parameters}
 
         if args.output_dir and utils.is_main_process():
-            with (output_dir / "log.txt").open("a") as f:
+            with (args.output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
             # for evaluation logs
             # if li3d_evaluator is not None:
-            #     (output_dir / 'eval').mkdir(exist_ok=True)
+            #     (args.output_dir / 'eval').mkdir(exist_ok=True)
             #     if "bbox" in coco_evaluator.coco_eval:
             #         filenames = ['latest.pth']
             #         if epoch % 50 == 0:
@@ -283,10 +287,11 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
+    args.output_dir = Path(args.output_dir) / f'{args.backbone}_{args.dataset_name}_b{args.batch_size}_lr{args.lr}_nq{args.num_queries}_gamma{args.focal_gamma}_alpha{args.focal_alpha}'
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     if args.tensorboard and args.output_dir is not None:
-        args.board_path = Path(os.path.join(args.output_dir, "tensorboard")) / f'{args.backbone}_{args.dataset_name}_b{args.batch_size}_lr{args.lr}_nq{args.num_queries}_alpha{args.focal_alpha}'
+        args.board_path = Path(os.path.join(args.output_dir, "tensorboard")) / f'{args.backbone}_{args.dataset_name}_b{args.batch_size}_lr{args.lr}_nq{args.num_queries}_gamma{args.focal_gamma}_alpha{args.focal_alpha}'
         args.board_path.mkdir(parents=True, exist_ok=True)
 
     if args.output_dir:

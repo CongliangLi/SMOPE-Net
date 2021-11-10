@@ -4,6 +4,7 @@ DETR model and criterion classes.
 """
 # from numpy import _ShapeType
 import torch
+from torch import tensor
 import torch.nn.functional as F
 from torch import nn
 
@@ -104,7 +105,7 @@ class SetCriterion(nn.Module):
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
 
-    def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
+    def __init__(self, num_classes, matcher, weight_dict, focal_alpha, focal_gamma, losses):
         """ Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -117,28 +118,37 @@ class SetCriterion(nn.Module):
         self.num_classes = num_classes
         self.matcher = matcher
         self.weight_dict = weight_dict
-        self.eos_coef = eos_coef
+
+        self.focal_gamma= focal_gamma
+        self.focal_alpha = focal_alpha
         self.losses = losses
         empty_weight = torch.ones(self.num_classes + 1)
-        empty_weight[-1] = self.eos_coef
+        empty_weight[-1] = self.focal_alpha
         self.register_buffer('empty_weight', empty_weight)
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
+
         assert 'pred_logits' in outputs
         src_logits = outputs['pred_logits']
 
         idx = self._get_src_permutation_idx(indices)
+        
+        # ####### 5 classes
+        # target_classes_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
+
+        ######## 2 classes
         target_classes_o = torch.cat([t["class_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
-        target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64, device=src_logits.device)
+
+
+        target_classes = torch.full(src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device)
+
         target_classes[idx] = target_classes_o
 
+        # ### debug focal loss
         src_prob = src_logits.softmax(-1)
-
-
-        ### debug
         fore_src = src_logits.argmax(-1)       
         pred_fore_num = (fore_src != self.num_classes).sum().item()
         matched_correct_num = (fore_src[idx] == target_classes_o).sum().item()
@@ -151,7 +161,7 @@ class SetCriterion(nn.Module):
         fake_idx = (pred_fore_idx[0][fake_fore], pred_fore_idx[1][fake_fore])
 
 
-        ###
+        # ###
 
         ### debug
         fake_trace_avg_prob = src_prob[fake_idx][..., 0].mean().item()
@@ -161,12 +171,29 @@ class SetCriterion(nn.Module):
         ### debug
 
 
+        ###### focal loss
         src_logits = src_prob.log()
-        src_logits *= (1 - src_prob) ** 1
-        loss = nn.NLLLoss(weight=self.empty_weight, reduction='sum')
+        src_logits *= (1 - src_prob) ** self.focal_gamma
+        loss = nn.NLLLoss(weight=self.empty_weight, reduction='mean')
         loss_ce = loss(src_logits.transpose(1, 2), target_classes)
 
+
+        # ####### ce loss
         # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+
+
+        ####### hard negative mining for ce loss
+        # gt_num = target_classes_o.shape[0]
+        # loss_ce_all = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight, reduction='none')
+        # # loss_ce_all = F.cross_entropy(src_logits.transpose(1, 2), target_classes, reduction='none')
+
+        # loss_ce_fore = loss_ce_all[idx]
+        # loss_ce_all[idx] = 0
+        # loss_ce_back, _ = torch.sort(loss_ce_all.reshape(loss_ce_all.shape[0]*loss_ce_all.shape[1]),descending = True)
+        # loss_ce_back = loss_ce_back[:gt_num*3]
+        # loss_ce = torch.cat((loss_ce_back, loss_ce_fore)).mean()
+
+
         losses = {'loss_ce': loss_ce}
 
         if log:
@@ -558,7 +585,7 @@ def build(args):
         losses = losses + ["masks"]
 
     criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
-                             eos_coef=args.eos_coef, losses=losses)
+                             focal_alpha=args.focal_alpha, focal_gamma=args.focal_gamma,losses=losses)
     criterion.to(device)
     postprocessors = {'bbox': PostProcess()}
     if args.poses:

@@ -95,13 +95,13 @@ class PoseResultPlotor(object):
                 
                 tgt_orig_size = target["orig_size"]
 
+                tgt_model_ids = target["model_ids"]
+                tgt_T_matrix_c2o = target["T_matrix_c2o"]
+                tgt_R_quaternion_c2o = target["R_quaternion_c2o"]
                 if args.poses:
-                    tgt_model_ids = target["model_ids"]
-                    tgt_T_matrix_c2o = target["T_matrix_c2o"]
-                    tgt_R_quaternion_c2o = target["R_quaternion_c2o"]
                     tgt_fps_points = target["fps_points"]
 
-                    tgt_scores = torch.ones_like(tgt_model_ids)
+                tgt_scores = torch.ones_like(tgt_model_ids)
 
                 # predicted value
                 pred_scores = pre_res["scores"].cpu().detach()
@@ -118,9 +118,9 @@ class PoseResultPlotor(object):
                 this_epoch = int(save_name.split("e")[-1].split("_")[0])
                 if this_epoch == 0 or this_epoch is None:
                     self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), tgt_bboxes_2d, tgt_model_ids, tgt_scores,
-                                    f'{self.tgt_save_path}/{save_name}_{num}.png')
+                                        f'{self.tgt_save_path}/{save_name}_{num}.png')
 
-                threshold = 0.5
+                threshold = args.plot_threshold
                 pred_mask = pred_scores > threshold
                 if pred_mask.any():
                     th_classes = pred_classes[pred_mask]
