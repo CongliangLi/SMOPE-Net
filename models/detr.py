@@ -136,10 +136,10 @@ class SetCriterion(nn.Module):
 
         idx = self._get_src_permutation_idx(indices)
         
-        # ####### 5 classes
+        # ============= 5 classes ===========
         # target_classes_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
 
-        ######## 2 classes
+        # ============= 2 classes ============
         target_classes_o = torch.cat([t["class_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
 
 
@@ -147,8 +147,8 @@ class SetCriterion(nn.Module):
 
         target_classes[idx] = target_classes_o
 
-        # ### debug focal loss
-        src_prob = src_logits.softmax(-1)
+
+        # ============ debug focal loss  =============
         fore_src = src_logits.argmax(-1)       
         pred_fore_num = (fore_src != self.num_classes).sum().item()
         matched_correct_num = (fore_src[idx] == target_classes_o).sum().item()
@@ -160,33 +160,59 @@ class SetCriterion(nn.Module):
         fake_fore = [i for i, x in enumerate(pred_fore_idx[1]) if x not in idx[1].tolist()]
         fake_idx = (pred_fore_idx[0][fake_fore], pred_fore_idx[1][fake_fore])
 
-
-        # ###
-
-        ### debug
+        src_prob = src_logits.softmax(-1)
         fake_trace_avg_prob = src_prob[fake_idx][..., 0].mean().item()
         tgt_trace_avg_prob = src_prob[idx][..., 0].mean().item()
         missed_trace_avg_prob = src_prob[matched_error_idx][..., 0].mean().item()
 
-        ### debug
+        print(f"target_num: {target_classes_o.shape[0]}    pred_fore_num: {pred_fore_num}   matched_correct_num: {matched_correct_num}")
+
+        # =============== finish debug ===============
 
 
-        ###### focal loss
-        src_logits = src_prob.log()
-        src_logits *= (1 - src_prob) ** self.focal_gamma
-        loss = nn.NLLLoss(weight=self.empty_weight, reduction='mean')
-        loss_ce = loss(src_logits.transpose(1, 2), target_classes)
+        # =============== focal loss 1 ====================
+        # src_prob = src_logits.softmax(-1) 
+        # src_logits = src_prob.log()
+        # src_logits *= (1 - src_prob) ** self.focal_gamma
+        # loss = nn.NLLLoss(weight=self.empty_weight, reduction='sum')
+        # loss_ce = loss(src_logits.transpose(1, 2), target_classes) / target_classes_o.shape[0]
 
 
-        # ####### ce loss
+        # =============== focal loss 2 ====================
+        src_prob=torch.softmax(src_logits, dim=-1)
+        p=src_prob[:,:,0]
+        # loss = -(1 - self.focal_alpha)*(1-p)**self.focal_gamma*(1 - target_classes)*torch.log(p)-\
+        #        self.focal_alpha*p**self.focal_gamma*target_classes*torch.log(1-p)
+        loss = - 1*(1-p)**self.focal_gamma*(1 - target_classes)*torch.log(p)-\
+               self.focal_alpha*p**self.focal_gamma*target_classes*torch.log(1-p)
+        loss_ce = loss.sum()/ target_classes_o.shape[0]
+
+        # =============== focal loss 3 ====================
+        # src_pred = src_logits.argmax(-1).type(torch.float32)
+
+        # at = self.empty_weight.gather(0, target_classes.data.view(-1)).view_as(target_classes)
+
+        # target_classes = target_classes.type(torch.float32)
+        # BCE_loss = F.binary_cross_entropy_with_logits(src_pred, target_classes, reduction='none')              
+                
+        # pt = torch.exp(-BCE_loss)      
+        # F_loss = at*(1-pt)**self.focal_gamma * BCE_loss
+        # loss_ce = F_loss.sum() / target_classes_o.shape[0]
+
+
+        # =============== ce loss ========================
         # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
 
 
-        ####### hard negative mining for ce loss
+        # ============== hard negative mining for ce loss ===========
         # gt_num = target_classes_o.shape[0]
-        # loss_ce_all = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight, reduction='none')
+        # # loss_ce_all = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight, reduction='none')
         # # loss_ce_all = F.cross_entropy(src_logits.transpose(1, 2), target_classes, reduction='none')
-
+        # src_pred = src_logits.argmax(-1).type(torch.float32)
+        # target_classes = target_classes.type(torch.float32)
+        # BCE_loss = F.binary_cross_entropy_with_logits(src_pred, target_classes, reduction='none')
+        
+        # loss_ce_all = BCE_loss
         # loss_ce_fore = loss_ce_all[idx]
         # loss_ce_all[idx] = 0
         # loss_ce_back, _ = torch.sort(loss_ce_all.reshape(loss_ce_all.shape[0]*loss_ce_all.shape[1]),descending = True)
@@ -198,7 +224,7 @@ class SetCriterion(nn.Module):
 
         if log:
             # TODO this should probably be a separate loss, not hacked in this one here
-            losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
+            losses['class_error'] =100 - accuracy(src_logits[idx], target_classes_o)[0]
         return losses
 
     @torch.no_grad()

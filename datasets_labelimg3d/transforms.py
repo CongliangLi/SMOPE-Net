@@ -32,18 +32,18 @@ def crop(image, target, region):
     # should we do something wrt the original size?
     target["size"] = torch.tensor([h, w])
 
-    fields = ["labels", "area", "iscrowd"]
+    fields = ["class_ids"]
 
-    if "boxes" in target:
-        boxes = target["boxes"]
+    if "bboxes_2d" in target:
+        boxes = target["bboxes_2d"]
         max_size = torch.as_tensor([w, h], dtype=torch.float32)
         cropped_boxes = boxes - torch.as_tensor([j, i, j, i])
         cropped_boxes = torch.min(cropped_boxes.reshape(-1, 2, 2), max_size)
         cropped_boxes = cropped_boxes.clamp(min=0)
         area = (cropped_boxes[:, 1, :] - cropped_boxes[:, 0, :]).prod(dim=1)
-        target["boxes"] = cropped_boxes.reshape(-1, 4)
+        target["bboxes_2d"] = cropped_boxes.reshape(-1, 4)
         target["area"] = area
-        fields.append("boxes")
+        fields.append("bboxes_2d")
 
     if "masks" in target:
         # FIXME should we update the area here if there are no boxes?
@@ -51,11 +51,11 @@ def crop(image, target, region):
         fields.append("masks")
 
     # remove elements for which the boxes or masks that have zero area
-    if "boxes" in target or "masks" in target:
+    if "bboxes_2d" in target or "masks" in target:
         # favor boxes selection when defining which elements to keep
         # this is compatible with previous implementation
-        if "boxes" in target:
-            cropped_boxes = target['boxes'].reshape(-1, 2, 2)
+        if "bboxes_2d" in target:
+            cropped_boxes = target['bboxes_2d'].reshape(-1, 2, 2)
             keep = torch.all(cropped_boxes[:, 1, :] > cropped_boxes[:, 0, :], dim=1)
         else:
             keep = target['masks'].flatten(1).any(1)
@@ -72,10 +72,10 @@ def hflip(image, target):
     w, h = image.size
 
     target = target.copy()
-    if "boxes" in target:
-        boxes = target["boxes"]
+    if "bboxes_2d" in target:
+        boxes = target["bboxes_2d"]
         boxes = boxes[:, [2, 1, 0, 3]] * torch.as_tensor([-1, 1, -1, 1]) + torch.as_tensor([w, 0, w, 0])
-        target["boxes"] = boxes
+        target["bboxes_2d"] = boxes
 
     if "masks" in target:
         target['masks'] = target['masks'].flip(-1)
@@ -150,7 +150,7 @@ def pad(image, target, padding):
         return padded_image, None
     target = target.copy()
     # should we do something wrt the original size?
-    target["size"] = torch.tensor(padded_image[::-1])
+    target["orig_size"] = torch.tensor(padded_image[::-1])
     if "masks" in target:
         target['masks'] = torch.nn.functional.pad(target['masks'], (0, padding[0], 0, padding[1]))
     return padded_image, target
@@ -274,10 +274,10 @@ class Normalize(object):
             boxes = target["bboxes_2d"]
             boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
 
-            for i in range(boxes.shape[0]):
-                for j in range(boxes.shape[1]):
-                    if boxes[i][j] > 1:
-                        boxes[i][j] = 1
+            # for i in range(boxes.shape[0]):
+            #     for j in range(boxes.shape[1]):
+            #         if boxes[i][j] > 1:
+            #             boxes[i][j] = 1
             target["bboxes_2d"] = boxes
 
         if "bboxes_3d" in target and target["bboxes_3d"].size()[-1] != 0:

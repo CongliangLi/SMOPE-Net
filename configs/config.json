@@ -8,7 +8,7 @@
   "class_num": 1,
   "device": "cuda:3",
   "seed": 42,
-  "output_dir": "../facebook_output_dir_focal",
+  "output_dir": "../facebook_output_dir_focal2_sum",
   "image_width": 1225,
   "image_height": 370,
   "pixel_mean": [0.485, 0.456, 0.406], 
@@ -16,7 +16,7 @@
 
   "camera_fov": 88.8, 
   "is_show_result":true, 
-  "plot_threshold":0.01,
+  "plot_threshold":0.4,
 
   "label_map": {
     "Tram": 0,
@@ -77,16 +77,16 @@
 
     "frozen_weights": null,
 
-    "batch_size": 2,
+    "batch_size": 16,
     "num_workers": 0,
     "lr": 1e-4,
     "lr_backbone":1e-5,
-    "lr_drop":200,
+    "lr_drop":300,
 
     "weight_decay":1e-4,
 
-    "focal_alpha": 2.0,
-    "focal_gamma":1,
+    "focal_alpha": 0.25,
+    "focal_gamma":2,
     
     "matcher_cost_class": 1,
     "matcher_cost_bbox": 5,
