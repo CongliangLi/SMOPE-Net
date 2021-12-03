@@ -95,7 +95,7 @@ class PoseHeadSmallLinear(nn.Module):
 
         ## for model class
         x_c = self.l2(x)
-        x_c = F.relu(self.l3(x_c))
+        x_c = self.l3(x_c)
         x_c = F.softmax(x_c.squeeze(-1), dim=-1)
 
         ## for pose 6dof
@@ -133,23 +133,60 @@ class DETRpose(nn.Module):
 
         features, pos = self.detr.backbone(samples)
 
+        srcs = []
+        masks = []
+        for l, feat in enumerate(features):
+            src, mask = feat.decompose()
+            srcs.append(self.detr.input_proj[l](src))
+            masks.append(mask)
+            assert mask is not None
+        if self.detr.num_feature_levels > len(srcs):
+            _len_srcs = len(srcs)
+            for l in range(_len_srcs, self.detr.num_feature_levels):
+                if l == _len_srcs:
+                    src = self.detr.input_proj[l](features[-1].tensors)
+                else:
+                    src = self.detr.input_proj[l](srcs[-1])
+                m = samples.mask
+                mask = F.interpolate(m[None].float(), size=src.shape[-2:]).to(torch.bool)[0]
+                pos_l = self.detr.backbone[1](NestedTensor(src, mask)).to(src.dtype)
+                srcs.append(src)
+                masks.append(mask)
+                pos.append(pos_l)
+
+        query_embeds = None
+        if not self.detr.two_stage:
+            query_embeds = self.detr.query_embed.weight
+
         bs = features[-1].tensors.shape[0]
 
-        src, mask = features[-1].decompose()
-        assert mask is not None
-        src_proj = self.detr.input_proj(src)
-        hs, memory = self.detr.transformer(src_proj, mask, self.detr.query_embed.weight, pos[-1])
+        hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact = self.detr.transformer(srcs, masks, pos, query_embeds)
 
-        outputs_class = self.detr.class_embed(hs)
-        outputs_coord = self.detr.bbox_embed(hs).sigmoid()
+        outputs_classes = []
+        outputs_coords = []
+        for lvl in range(hs.shape[0]):
+            if lvl == 0:
+                reference = init_reference
+            else:
+                reference = inter_references[lvl - 1]
+            reference = inverse_sigmoid(reference)
+            outputs_class = self.detr.class_embed[lvl](hs[lvl])
+            tmp = self.detr.bbox_embed[lvl](hs[lvl])
+            if reference.shape[-1] == 4:
+                tmp += reference
+            else:
+                assert reference.shape[-1] == 2
+                tmp[..., :2] += reference
+            outputs_coord = tmp.sigmoid()
+            outputs_classes.append(outputs_class)
+            outputs_coords.append(outputs_coord)
 
-        out = {
-            "pred_logits": outputs_class[-1],
-            "pred_boxes": outputs_coord[-1]
-        }
+        outputs_class = torch.stack(outputs_classes)
+        outputs_coord = torch.stack(outputs_coords)
 
+        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]}
         if self.detr.aux_loss:
-            out["aux_outputs"] = self.detr._set_aux_loss(outputs_class, outputs_coord)
+            out['aux_outputs'] = self.detr._set_aux_loss(outputs_class, outputs_coord)
 
         # 3d model and query attention
         # 1. get the feature of 3d model

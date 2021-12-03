@@ -1,4 +1,12 @@
+# ------------------------------------------------------------------------
+# Deformable DETR
+# Copyright (c) 2020 SenseTime. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
+# ------------------------------------------------------------------------
+# Modified from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# ------------------------------------------------------------------------
+
 """
 Utilities for bounding box manipulation and GIoU.
 """
@@ -17,12 +25,6 @@ def box_xyxy_to_cxcywh(x):
     x0, y0, x1, y1 = x.unbind(-1)
     b = [(x0 + x1) / 2, (y0 + y1) / 2,
          (x1 - x0), (y1 - y0)]
-    return torch.stack(b, dim=-1)
-
-
-def box_xyxy_to_botcenter(x):
-    x0, y0, x1, y1 = x.unbind(-1)
-    b = [x0 + (x1 -x0) / 2, y1]
     return torch.stack(b, dim=-1)
 
 
@@ -65,30 +67,6 @@ def generalized_box_iou(boxes1, boxes2):
     area = wh[:, :, 0] * wh[:, :, 1]
 
     return iou - (area - union) / area
-
-
-
-def bbox_3d_w_iou(box1, box2):
-
-    # box [x1,y1,z1,x2,y2,z2]   Diagonal vertex coordinates
-    area1 = (box1[3]-box1[0])*(box1[4]-box1[1])*(box1[5]-box1[2])
-    area2 = (box2[3]-box2[0])*(box2[4]-box2[1])*(box2[5]-box2[2])
-    area_sum = area1 + area2
-
-    # Calculate the overlap part, set the overlap bbox coordinates as [x1,y1,z1,x2,y2,z2]
-    x1 = max(box1[0], box2[0])
-    y1 = max(box1[1], box2[1])
-    z1 = max(box1[2], box2[2])
-    x2 = min(box1[3], box2[3])
-    y2 = min(box1[4], box2[4])
-    z2 = min(box1[5], box2[5])
-    if x1 >= x2 or y1 >= y2 or z1 >= z2:
-        return 0
-    else:
-        inter_area = (x2-x1)*(y2-y1)*(z2-z1)
-
-    return inter_area/(area_sum-inter_area)
-
 
 
 def masks_to_boxes(masks):

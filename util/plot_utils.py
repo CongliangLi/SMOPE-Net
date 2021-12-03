@@ -1,49 +1,30 @@
-from pickle import NONE
-from PIL import Image
+"""
+Plotting utilities to visualize training logs.
+"""
+import torch
+import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-import numpy as np
-from pathlib import Path
-import torch
-from torch import Tensor
-
+from pathlib import Path, PurePath
 from datasets_labelimg3d import KITTI_CLASSES
-from datasets_labelimg3d.transforms import NormalizeInverse
-from util.box_ops import box_xyxy_to_botcenter, box_cxcywh_to_xyxy
-from configs import config
 import os
+from configs import config
+from util.box_ops import box_xyxy_to_cxcywh, box_cxcywh_to_xyxy
+from datasets_labelimg3d.transforms import NormalizeInverse
 from pytorch3d.utils import ico_sphere
 from pytorch3d.ops import sample_points_from_meshes
 from pytorch3d.io import load_obj, save_obj
 import json
 from util.utils import get_distance, RQuaternion_2_RMatrix, Rotate_x_axis
 
+
+
 # colors for visualization
 COLORS = [[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],
           [0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]]
-
 normalizeInverse = NormalizeInverse(config["pixel_mean"], config["pixel_std"])
-
-
-@torch.no_grad()
-def plot_bboxes_2d(pil_img, boxes):
-    # bboxes: [l t r b]
-    plt.figure(figsize=(16, 10))
-    if isinstance(pil_img, Image.Image):
-        plt.imshow(pil_img)
-    elif isinstance(pil_img, Tensor):
-        pli_img, boxes = normalizeInverse(pil_img, boxes)
-        plt.imshow(pli_img.numpy())
-    ax = plt.gca()
-    for (xmin, ymin, xmax, ymax), c in zip(boxes.tolist(), COLORS * 100):
-        # passed padding bbox
-        if (xmax - xmin) == 0 and (ymax - ymin) == 0:
-            continue
-        ax.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
-                                   fill=False, color=c, linewidth=3))
-    plt.axis('off')
-    plt.show()
 
 
 class PoseResultPlotor(object):
@@ -76,73 +57,77 @@ class PoseResultPlotor(object):
             predictions: [src_predictions, model_predictions]
             save_name (str): plot image save file name. Defaults to None.
         """
-        try:
-            pre_src, pre_model = predictions
-            if args.poses and pre_model is not None:
-                for i, model in enumerate(pre_model):
-                    pre_model_points = model["pred_model_points"]
-                    pred_model_scale = model["pred_model_scales"]
-                    pred_model_center = model["pred_model_centers"]
-                    self._save_model(i, pre_model_points, pred_model_scale, pred_model_center, args, save_name)
+        # try:
+        pre_src, pre_model = predictions
 
-            num = 0
-            for sample, pre_res, target in zip(samples, pre_src, targets):
-                _, h, w = sample.size()
+        if args.poses and pre_model is not None:
+            for i, model in enumerate(pre_model):
+                pre_model_points = model["pred_model_points"]
+                pred_model_scale = model["pred_model_scales"]
+                pred_model_center = model["pred_model_centers"]
+                self._save_model(i, pre_model_points, pred_model_scale, pred_model_center, args, save_name)
 
-                # target
-                tgt_bboxes_2d = box_cxcywh_to_xyxy(target['bboxes_2d']).cpu() * torch.Tensor([w, h, w, h])
-                tgt_bboxes_3d_w = target["bboxes_3d_w"]
-                
-                tgt_orig_size = target["orig_size"]
 
-                tgt_model_ids = target["model_ids"]
-                tgt_T_matrix_c2o = target["T_matrix_c2o"]
-                tgt_R_quaternion_c2o = target["R_quaternion_c2o"]
-                if args.poses:
-                    tgt_fps_points = target["fps_points"]
+        num = 0
+        for sample, pre_res, target in zip(samples, pre_src, targets):
+            _, h, w = sample.size()
 
-                tgt_scores = torch.ones_like(tgt_model_ids)
+            # target
+            tgt_bboxes_2d = box_cxcywh_to_xyxy(target['bboxes_2d']).cpu() * torch.Tensor([w, h, w, h])
+            tgt_bboxes_3d_w = target["bboxes_3d_w"]
+            
+            tgt_orig_size = target["orig_size"]
 
-                # predicted value
-                pred_scores = pre_res["scores"].cpu().detach()
-                pred_classes = pre_res["labels"].cpu().detach()
-                pred_bboxes_2d = box_cxcywh_to_xyxy(pre_res['bboxes_2d'].cpu().detach()) * torch.Tensor([w, h, w, h])
+            tgt_model_ids = target["model_ids"]
+            tgt_T_matrix_c2o = target["T_matrix_c2o"]
+            tgt_R_quaternion_c2o = target["R_quaternion_c2o"]
+            if args.poses:
+                tgt_fps_points = target["fps_points"]
 
-                if args.poses:
-                    pred_model_ids = torch.max(pre_res['pose_class'].cpu().detach(), dim=1)[1]
-                    pred_pose_6dof = pre_res["pose_6dof"].cpu().detach()
+            tgt_scores = torch.ones_like(tgt_model_ids)
 
-                ####  save pred and tgt ####
-                # save tgt images
+            # predicted value
+            pred_scores = pre_res["scores"].cpu().detach()
+            pred_classes = pre_res["labels"].cpu().detach()
+            pred_bboxes_2d = box_cxcywh_to_xyxy(pre_res['bboxes_2d'].cpu().detach()) * torch.Tensor([w, h, w, h])
 
+            if args.poses:
+                pred_model_ids = torch.max(pre_res['pose_class'].cpu().detach(), dim=1)[1]
+                pred_pose_6dof = pre_res["pose_6dof"].cpu().detach()
+
+            ####  save pred and tgt ####
+            # save tgt images
+            this_epoch = None
+            if "evl" in save_name:
                 this_epoch = int(save_name.split("e")[-1].split("_")[0])
-                if this_epoch == 0 or this_epoch is None:
-                    self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), tgt_bboxes_2d, tgt_model_ids, tgt_scores,
-                                        f'{self.tgt_save_path}/{save_name}_{num}.png')
+            
+            if this_epoch == 0 or this_epoch is None:
+                self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), tgt_bboxes_2d, tgt_model_ids, tgt_scores,
+                                    f'{self.tgt_save_path}/{save_name}_{num}.png')
 
-                threshold = args.plot_threshold
-                pred_mask = pred_scores > threshold
-                if pred_mask.any():
-                    th_classes = pred_classes[pred_mask]
-                    th_scores = pred_scores[pred_mask]
-                    th_bboxes_2d = pred_bboxes_2d[pred_mask]
-                    if args.poses:
-                        th_model_ids = pred_model_ids[pred_mask]
-                        th_pose_6dof = pred_pose_6dof[pred_mask]
+            threshold = args.plot_threshold
+            pred_mask = pred_scores > threshold
+            if pred_mask.any():
+                th_classes = pred_classes[pred_mask]
+                th_scores = pred_scores[pred_mask]
+                th_bboxes_2d = pred_bboxes_2d[pred_mask]
+                if args.poses:
+                    th_model_ids = pred_model_ids[pred_mask]
+                    th_pose_6dof = pred_pose_6dof[pred_mask]
 
-                        # save pred images
-                        self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_model_ids, th_scores,
-                                            f'{self.pred_img_save_path}/{save_name}_{num}.png')
-                        # save pred 6dof as annotations for labelImg3d
-                        self._save_6dof_annotation(sample, th_pose_6dof, th_model_ids, f"{save_name}_{num}")
-                    else:
-                        # save pred images
-                        self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_classes, th_scores,
-                                            f'{self.pred_img_save_path}/{save_name}_{num}.png')
+                    # save pred images
+                    self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_model_ids, th_scores,
+                                        f'{self.pred_img_save_path}/{save_name}_{num}.png')
+                    # save pred 6dof as annotations for labelImg3d
+                    self._save_6dof_annotation(sample, th_pose_6dof, th_model_ids, f"{save_name}_{num}")
+                else:
+                    # save pred images
+                    self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_classes, th_scores,
+                                        f'{self.pred_img_save_path}/{save_name}_{num}.png')
 
-                num = num + 1
-        except Exception as e:
-            print(e)
+            num = num + 1
+        # except Exception as e:
+        #     print(e)
 
     def _plot_bbox2d(self, image, boxes, labels, scores, save_name: str = None):
         fig = plt.figure(figsize=(16, 10))
@@ -170,6 +155,8 @@ class PoseResultPlotor(object):
             bboxes_ops.append(ax.text(xmin, ymin, text, fontsize=15,
                                       bbox=dict(facecolor='yellow', alpha=0.5)))
         return bboxes_ops
+
+
 
     def _save_model(self, index, model_points, model_scale, model_center, args, save_name):
         # Deform the mesh
@@ -234,3 +221,4 @@ class PoseResultPlotor(object):
                 "distance": get_distance(config["camera_fov"])
             }
         }
+
