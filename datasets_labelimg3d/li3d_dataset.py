@@ -14,7 +14,7 @@ from util.utils import get_camera_intrinsics, RMatrix_2_RQuaternion, RQuaternion
 from PIL import Image
 import datasets_labelimg3d.transforms as T
 from pytorch3d.io import load_obj, save_obj
-
+from torchvision import transforms
 from configs import cfg, config
 
 # Set the device
@@ -71,9 +71,10 @@ class SingleAnnotationParser:
             "model_ids": torch.tensor(self.model_ids).long(),
             "labels": torch.tensor(self.class_ids).long(),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o),
-            "R_quaternion_c2o": torch.Tensor(self.R_quaternion_c2o),
+            "R_quaternion_c2o": torch.tensor(self.R_quaternion_c2o),
             "R_euler_c2o": torch.tensor(self.R_euler_c2o),
-            'orig_size': torch.tensor(self.orig_size)
+            'orig_size': torch.tensor(self.orig_size),
+            "img_path": torch.tensor(int(self.img_path.split("/")[-1].split(".")[0]))
         }
         return img, targets
 

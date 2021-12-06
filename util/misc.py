@@ -13,12 +13,14 @@ Misc functions, including distributed helpers.
 Mostly copy-paste from torchvision references.
 """
 import os
+import re
 import subprocess
 import time
 from collections import defaultdict, deque
 import datetime
 import pickle
 from typing import Optional, List
+from PIL.Image import NONE
 
 import torch
 import torch.nn as nn
@@ -93,6 +95,8 @@ class SmoothedValue(object):
     @property
     def median(self):
         d = torch.tensor(list(self.deque))
+        if d.shape == torch.Size([0]):
+            return None
         return d.median().item()
 
     @property
@@ -102,17 +106,26 @@ class SmoothedValue(object):
 
     @property
     def global_avg(self):
+        if self.count == 0:
+            return None
         return self.total / self.count
 
     @property
     def max(self):
+        if self.deque == deque([]):
+            return None
         return max(self.deque)
 
     @property
     def value(self):
+        if self.deque == deque([]):
+            return None
         return self.deque[-1]
 
     def __str__(self):
+        if self.median is None:
+            return None
+
         return self.fmt.format(
             median=self.median,
             avg=self.avg,

@@ -55,8 +55,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                 t["model_centers"] = model.model_3d_net.center_list
                 t["model_points"] = model.model_3d_net.meshes
                 t["fps_points"] = model.model_3d_net.fps_points
+        if args.poses:
+            outputs = model(samples)
+        else:
+            outputs, _ = model(samples)
         
-        outputs = model(samples)
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
         losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
@@ -70,6 +73,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
 
         loss_value = losses_reduced_scaled.item()
+        
+        print(loss_value)
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -78,10 +83,13 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
         optimizer.zero_grad()
         losses.backward()
+
         if max_norm > 0:
             grad_total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         else:
             grad_total_norm = utils.get_total_grad_norm(model.parameters(), max_norm)
+
+        assert not torch.isnan(grad_total_norm).any()
         optimizer.step()
 
 
@@ -157,7 +165,10 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
                 t["model_points"] = model.model_3d_net.meshes
                 t["fps_points"] = model.model_3d_net.fps_points
 
-        outputs = model(samples)
+        if args.poses:
+            outputs = model(samples)
+        else:
+            outputs, _ = model(samples)
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
 
@@ -168,6 +179,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         loss_dict_reduced_unscaled = {f'{k}_unscaled': v
                                       for k, v in loss_dict_reduced.items()}
         loss_value = sum(loss_dict_reduced_scaled.values()).item()
+
+        # print(loss_value)
 
 
 

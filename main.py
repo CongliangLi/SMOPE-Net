@@ -54,6 +54,13 @@ def get_args_parser():
     parser.add_argument("--plot_threshold", default=config["plot_threshold"], type=float)
 
 
+    # obj model
+    parser.add_argument("--model_class_num", default=config["model"]["model_class_num"], type=int)
+    parser.add_argument("--model_name", default=config["model"]["model_name"], type=list)
+    parser.add_argument("--model_num_samples", default=config["model"]["model_num_samples"], type=int)
+    parser.add_argument("--model_focal_gamma", default=cfg["model_focal_gamma"], type=float)
+
+
 
     parser.add_argument('--sgd', action='store_true')
 

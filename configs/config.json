@@ -29,6 +29,7 @@
     "vehicle": 1
   },
   "model": {
+    "model_class_num": 5,
     "model_name":["tram_001.obj", "car_001.obj", "truck_001.obj", "van_001.obj", "pedestrian_001.obj"],
     "model_num_samples": 5000
   },
@@ -72,7 +73,7 @@
   "train": {
     "start_epoch": 0,
     "end_epoch": 10000,
-    "resume": "/mnt/data3/CongliangLi/DETR/output_dir_pose/resnet50_kitti_b4_lr0.0002_nq300_gamma2_alpha0.25/checkpoints/checkpoint.pth",
+    "resume": "",
     "aux_loss": false,
 
     "frozen_weights": null,
@@ -88,10 +89,12 @@
 
     "focal_alpha": 0.25,
     "focal_gamma": 2,
+    "model_focal_gamma": 2,
     
     "matcher_cost_class": 1,
     "matcher_cost_bbox": 5,
     "matcher_cost_giou": 5,
+
 
     "cls_loss_weight": 1,
     "bbox2d_loss_weight": 5,
@@ -99,7 +102,6 @@
     "model3d_loss_weight":1,
     "pose6dof_loss_weight":1,
     
-
     "model3d_scales_weight": 8.0,
     "model3d_centers_weight": 4.0,
     "model3d_points_weight": 1.0,
@@ -109,8 +111,8 @@
     "model3d_laplacian_weight": 0.1,
 
     "model_6dof_class_weight":1.0,
-    "model_6dof_add_weight":0.1,
-    "model_6dof_fps_points_weight":0.1,
+    "model_6dof_add_weight":1.0,
+    "model_6dof_fps_points_weight":1.0,
 
 
     "tensorboard": true
