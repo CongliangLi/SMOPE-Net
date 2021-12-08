@@ -2,7 +2,7 @@
   "dataset_name": "kitti",
   "dataset_path": "/mnt/data3/CongliangLi/DETR/data/kitti",
   "poses": true,
-  "eval": false,
+  "eval": true,
 
   "phase": "train",
   "class_num": 1,
@@ -70,7 +70,7 @@
      "detect_obj_show_topk": 60,
      "detect_obj_show_thresh": 0.3
   },
-  "train": {
+  "train": {  
     "start_epoch": 0,
     "end_epoch": 10000,
     "resume": "",
@@ -83,7 +83,7 @@
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,
-    "lr_drop":40,
+    "lr_drop":100,
 
     "weight_decay":1e-4,
 
