@@ -2,7 +2,7 @@
   "dataset_name": "kitti",
   "dataset_path": "/mnt/data3/CongliangLi/DETR/data/kitti",
   "poses": true,
-  "eval": true,
+  "eval": false,
 
   "phase": "train",
   "class_num": 1,

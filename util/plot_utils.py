@@ -258,6 +258,8 @@ class PoseResultPlotor(object):
                 "class_name": model_class_id,
                 "size": model_size
             }
+        with open(json_save_path, 'w+') as f:
+            json.dump(data, f, indent=4)
 
     def getEmptyJson(self, save_name):
         return {
