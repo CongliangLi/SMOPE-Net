@@ -1,6 +1,6 @@
 {
   "dataset_name": "KITTI3D",
-  "dataset_path": "/mnt/ecc5c6c9-7631-4983-9ba0-1ec98729589b/lcl/DETR/data/KITTI3D",
+  "dataset_path": "../data/KITTI3D",
   "poses": true,
   "eval": false,
 
@@ -79,7 +79,7 @@
     "frozen_weights": null,
     "save_weights_num": 10,
 
-    "batch_size": 16,
+    "batch_size": 4,
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,

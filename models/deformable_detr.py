@@ -42,14 +42,13 @@ from pytorch3d.loss import (
 )
 
 
-
-
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
 class DeformableDETR(nn.Module):
     """ This is the Deformable DETR module that performs object detection """
+
     def __init__(self, backbone, transformer, num_classes, num_queries, num_feature_levels,
                  aux_loss=True, with_box_refine=False, two_stage=False):
         """ Initializes the model.
@@ -71,7 +70,7 @@ class DeformableDETR(nn.Module):
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
         self.num_feature_levels = num_feature_levels
         if not two_stage:
-            self.query_embed = nn.Embedding(num_queries, hidden_dim*2)
+            self.query_embed = nn.Embedding(num_queries, hidden_dim * 2)
         if num_feature_levels > 1:
             num_backbone_outs = len(backbone.strides)
             input_proj_list = []
@@ -170,8 +169,10 @@ class DeformableDETR(nn.Module):
         query_embeds = None
         if not self.two_stage:
             query_embeds = self.query_embed.weight
-        
-        hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact = self.transformer(srcs, masks, pos, query_embeds)
+
+        hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact = self.transformer(srcs, masks,
+                                                                                                            pos,
+                                                                                                            query_embeds)
 
         outputs_classes = []
         outputs_coords = []
@@ -218,7 +219,9 @@ class SetCriterion(nn.Module):
         1) we compute hungarian assignment between ground truth boxes and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
-    def __init__(self, num_classes, matcher, weight_dict, losses, model_class_num, model_focal_gamma=2,focal_alpha=0.25, focal_gamma=2):
+
+    def __init__(self, num_classes, matcher, weight_dict, losses, model_class_num, model_focal_gamma=2,
+                 focal_alpha=0.25, focal_gamma=2):
         """ Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -242,8 +245,6 @@ class SetCriterion(nn.Module):
         self.model_class_num = model_class_num
         self.model_focal_gamma = model_focal_gamma
 
-
-
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
@@ -256,15 +257,15 @@ class SetCriterion(nn.Module):
         target_classes = torch.full(src_logits.shape[:2], self.num_classes,
                                     dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
-        
+
         # ============ debug focal loss  =============
-        fore_src = src_logits.argmax(-1)       
+        fore_src = src_logits.argmax(-1)
         pred_fore_num = (fore_src != self.num_classes).sum().item()
         matched_correct_num = (fore_src[idx] == target_classes_o).sum().item()
-        
+
         matched_error = (fore_src[idx] != target_classes_o).nonzero(as_tuple=True)[0]
         matched_error_idx = (idx[0][matched_error], idx[1][matched_error])
-        
+
         pred_fore_idx = (fore_src != self.num_classes).nonzero(as_tuple=True)
         fake_fore = [i for i, x in enumerate(pred_fore_idx[1]) if x not in idx[1].tolist()]
         fake_idx = (pred_fore_idx[0][fake_fore], pred_fore_idx[1][fake_fore])
@@ -274,27 +275,25 @@ class SetCriterion(nn.Module):
         tgt_trace_avg_prob = src_prob[idx][..., 0].mean().item()
         missed_trace_avg_prob = src_prob[matched_error_idx][..., 0].mean().item()
 
-        print(f"target_num: {target_classes_o.shape[0]}    pred_fore_num: {pred_fore_num}   matched_correct_num: {matched_correct_num}")
+        print(
+            f"target_num: {target_classes_o.shape[0]}    pred_fore_num: {pred_fore_num}   matched_correct_num: {matched_correct_num}")
 
         # =============== finish debug ===============
 
         # =============== focal loss =======================
         src_logits = src_prob.log()
         src_prob = src_logits.softmax(-1)
-        src_logits = src_logits *  ((1 - src_prob) ** self.focal_gamma)
+        src_logits = src_logits * ((1 - src_prob) ** self.focal_gamma)
         loss = nn.NLLLoss(weight=self.empty_weight, reduction='sum')
         loss_ce = loss(src_logits.transpose(1, 2), target_classes) / (target_classes_o.shape[0] + 1e-7)
 
-
-        # =============== sigmod focal loss =============== 
+        # =============== sigmod focal loss ===============
         # target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2] + 1],
         #                                     dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
         # target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
         # target_classes_onehot = target_classes_onehot[:,:,:-1]
         # loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=self.focal_gamma) * src_logits.shape[1]
-        
-
 
         # =============== focal loss 1 for 2 classes====================
         # src_prob = src_logits.softmax(-1) 
@@ -302,7 +301,6 @@ class SetCriterion(nn.Module):
         # src_logits *= (1 - src_prob) ** self.focal_gamma
         # loss = nn.NLLLoss(weight=self.empty_weight, reduction='sum')
         # loss_ce = loss(src_logits.transpose(1, 2), target_classes) / target_classes_o.shape[0]
-
 
         # =============== focal loss 2 for 2 classes====================
         # src_prob=torch.softmax(src_logits, dim=-1)
@@ -320,16 +318,15 @@ class SetCriterion(nn.Module):
 
         # target_classes = target_classes.type(torch.float32)
         # BCE_loss = F.binary_cross_entropy_with_logits(src_pred, target_classes, reduction='none')              
-                
+
         # pt = torch.exp(-BCE_loss)      
         # F_loss = at*(1-pt)**self.focal_gamma * BCE_loss
         # loss_ce = F_loss.sum() / target_classes_o.shape[0]
 
-
         # =============== focal loss for 5 classes====================
         # pt = torch.softmax(src_logits, dim=-1)
         # class_mask = F.one_hot(target_classes, self.num_classes + 1)
-        
+
         # ids = target_classes.view(-1, 1)
         # weights = self.empty_weight[ids.data.view(-1)].view(-1,1)
 
@@ -339,11 +336,8 @@ class SetCriterion(nn.Module):
         # loss_all = -weights * (torch.pow((1 - probs), self.focal_gamma)) * log_p
         # loss_ce = loss_all.sum() / target_classes_o.shape[0]
 
-
-
         # =============== ce loss ========================
         # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
-
 
         # ============== hard negative mining for ce loss ===========
         # gt_num = target_classes_o.shape[0]
@@ -352,7 +346,7 @@ class SetCriterion(nn.Module):
         # src_pred = src_logits.argmax(-1).type(torch.float32)
         # target_classes = target_classes.type(torch.float32)
         # BCE_loss = F.binary_cross_entropy_with_logits(src_pred, target_classes, reduction='none')
-        
+
         # loss_ce_all = BCE_loss
         # loss_ce_fore = loss_ce_all[idx]
         # loss_ce_all[idx] = 0
@@ -360,8 +354,6 @@ class SetCriterion(nn.Module):
         # loss_ce_back = loss_ce_back[:gt_num*3]
         # loss_ce = torch.cat((loss_ce_back, loss_ce_fore)).mean()
 
-        
-        
         losses = {'loss_ce': loss_ce}
 
         if log:
@@ -432,7 +424,6 @@ class SetCriterion(nn.Module):
             "loss_dice": dice_loss(src_masks, target_masks, num_boxes),
         }
         return losses
-
 
     def loss_model3d(self, outputs, targets, indices, num_boxes):
         assert "pred_model_scales" in outputs
@@ -510,11 +501,11 @@ class SetCriterion(nn.Module):
         # 1.3 get the model class loss
         # ===================== ce loss for model class ======================
         # loss_mc = F.cross_entropy(src_class[None, :].permute(0, 2, 1), tgt_class_o[None, :])
-        
+
         # ===================== focal loss for model class ======================
         pt = torch.softmax(src_class, dim=-1)
         class_mask = F.one_hot(tgt_class_o, self.model_class_num)
-        
+
         # ids = tgt_class_o.view(-1, 1)
         # weights = self.empty_weight[ids.data.view(-1)].view(-1,1)
 
@@ -584,8 +575,6 @@ class SetCriterion(nn.Module):
         # losses["pose_6dof_bboxes_3d"] = 0
 
         return losses
-
-
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -660,7 +649,6 @@ class SetCriterion(nn.Module):
                     l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
                     losses.update(l_dict)
 
-                
         return losses
 
 
@@ -680,7 +668,6 @@ class PostProcess(nn.Module):
 
         assert len(out_logits) == len(target_sizes)
         assert target_sizes.shape[1] == 2
-
 
         prob = F.softmax(out_logits, -1)
         scores, labels = prob[..., :-1].max(-1)
@@ -719,7 +706,6 @@ class MLP(nn.Module):
 
 
 def build(args):
-
     num_classes = args.class_num
 
     device = torch.device(args.device)
@@ -742,9 +728,9 @@ def build(args):
         model = DETRpose(model, freeze_detr=(args.frozen_weights is not None))
 
     matcher = build_matcher(args)
-    weight_dict = {'loss_ce': args.cls_loss_weight, 
-                    'loss_bbox': args.bbox2d_loss_weight,
-                    'loss_giou':args.giou_loss_weight}
+    weight_dict = {'loss_ce': args.cls_loss_weight,
+                   'loss_bbox': args.bbox2d_loss_weight,
+                   'loss_giou': args.giou_loss_weight}
 
     if args.poses:
         weight_dict["model3d_scales"] = args.model3d_scales_weight
@@ -754,7 +740,6 @@ def build(args):
         weight_dict["pose_6dof_add"] = args.model_6dof_add_weight
         weight_dict["pose_6dof_fps_points_3d"] = args.model_6dof_fps_points_weight
 
-
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):
@@ -763,18 +748,18 @@ def build(args):
         weight_dict.update(aux_weight_dict)
 
     losses = ['labels', 'boxes', 'cardinality']
-    
+
     if args.poses:
         losses = losses + ["model3d", "pose6dof"]
-    
+
     # num_classes, matcher, weight_dict, losses, focal_alpha=0.25
-    criterion = SetCriterion(num_classes, matcher, weight_dict, losses, model_class_num= args.model_class_num,
-                            model_focal_gamma=args.model_focal_gamma,focal_alpha=args.focal_alpha, focal_gamma=args.focal_gamma)
+    criterion = SetCriterion(num_classes, matcher, weight_dict, losses, model_class_num=args.model_class_num,
+                             model_focal_gamma=args.model_focal_gamma, focal_alpha=args.focal_alpha,
+                             focal_gamma=args.focal_gamma)
     criterion.to(device)
     postprocessors = {'bbox': PostProcess()}
 
     if args.poses:
         postprocessors = {"pose": PostProcessPose()}
-
 
     return model, criterion, postprocessors

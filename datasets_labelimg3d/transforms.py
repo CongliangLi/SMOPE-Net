@@ -114,11 +114,9 @@ def resize(image, target, size, max_size=None):
     target = target.copy()
     if "bboxes_2d" in target:
         boxes = target["bboxes_2d"]
-        if boxes.numel():
-            scaled_boxes = boxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
-            target["bboxes_2d"] = scaled_boxes
-        else:
-            return
+        scaled_boxes = boxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
+        target["bboxes_2d"] = scaled_boxes
+
     if "area" in target:
         area = target["area"]
         scaled_area = area * (ratio_width * ratio_height)

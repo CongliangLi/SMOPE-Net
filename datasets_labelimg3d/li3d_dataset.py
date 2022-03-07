@@ -44,6 +44,7 @@ class SingleAnnotationParser:
         self.R_matrix_c2o, self.R_quaternion_c2o, self.R_euler_c2o = [], [], []
         self.T_matrix_c2o = []
         self.class_ids = []
+        self.model_num = annotation_data["model"]["num"]
 
         for i in range(int(annotation_data["model"]["num"])):
             self.model_ids.append(annotation_data["model"][str(i)]["class"] - 1)
@@ -63,16 +64,19 @@ class SingleAnnotationParser:
     def __getitem__(self):
         img = Image.open(self.img_path)
         boxes = torch.tensor(self.bboxes_2d)
+        if len(boxes) == 0:
+            print(self.img_path)
+
         targets = {
             'bboxes_2d': torch.cat([(boxes[:, :2] + boxes[:, 2:]) / 2, boxes[:, 2:] - boxes[:, :2]], dim=1) if len(
-                boxes) != 0 else boxes,  # convert to cxcywh
-            "bboxes_3d": torch.tensor(self.bboxes_3d),
-            "bboxes_3d_w": torch.tensor(self.bboxes_3d_w),
-            "model_ids": torch.tensor(self.model_ids).long(),
-            "labels": torch.tensor(self.class_ids).long(),
-            "T_matrix_c2o": torch.tensor(self.T_matrix_c2o),
-            "R_quaternion_c2o": torch.tensor(self.R_quaternion_c2o),
-            "R_euler_c2o": torch.tensor(self.R_euler_c2o),
+                boxes) != 0 else torch.empty(0, 4),  # convert to cxcywh
+            "bboxes_3d": torch.tensor(self.bboxes_3d) if len(boxes) != 0 else torch.empty(0, 8, 2),
+            "bboxes_3d_w": torch.tensor(self.bboxes_3d_w) if len(boxes) != 0 else torch.empty(0, 8, 3),
+            "model_ids": torch.tensor(self.model_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
+            "labels": torch.tensor(self.class_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
+            "T_matrix_c2o": torch.tensor(self.T_matrix_c2o) if len(boxes) != 0 else torch.empty(0, 3),
+            "R_quaternion_c2o": torch.tensor(self.R_quaternion_c2o) if len(boxes) != 0 else torch.empty(0, 4),
+            "R_euler_c2o": torch.tensor(self.R_euler_c2o) if len(boxes) != 0 else torch.empty(0, 3),
             'orig_size': torch.tensor(self.orig_size),
             "img_path": torch.tensor(int(self.img_path.split("/")[-1].split(".")[0]))
         }
