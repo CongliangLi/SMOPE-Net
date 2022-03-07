@@ -1,12 +1,4 @@
-# ------------------------------------------------------------------------
-# Deformable DETR
-# Copyright (c) 2020 SenseTime. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
-# ------------------------------------------------------------------------
-# Modified from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# ------------------------------------------------------------------------
-
 """
 Transforms and data augmentation for both image + bbox.
 """
@@ -18,9 +10,7 @@ import torchvision.transforms as T
 import torchvision.transforms.functional as F
 
 from util.box_ops import box_xyxy_to_cxcywh
-
-
-# from util.misc import interpolate
+from util.misc import interpolate
 
 
 def crop(image, target, region):
@@ -32,7 +22,7 @@ def crop(image, target, region):
     # should we do something wrt the original size?
     target["size"] = torch.tensor([h, w])
 
-    fields = ["class_ids"]
+    fields = ["labels", "area"]
 
     if "bboxes_2d" in target:
         boxes = target["bboxes_2d"]
@@ -55,7 +45,7 @@ def crop(image, target, region):
         # favor boxes selection when defining which elements to keep
         # this is compatible with previous implementation
         if "bboxes_2d" in target:
-            cropped_boxes = target['bboxes_2d'].reshape(-1, 2, 2)
+            cropped_boxes = target['boxes'].reshape(-1, 2, 2)
             keep = torch.all(cropped_boxes[:, 1, :] > cropped_boxes[:, 0, :], dim=1)
         else:
             keep = target['masks'].flatten(1).any(1)
@@ -122,16 +112,13 @@ def resize(image, target, size, max_size=None):
     ratio_width, ratio_height = ratios
 
     target = target.copy()
-    if "bboxes_2d" in target and target["bboxes_2d"].size()[-1] != 0:
+    if "bboxes_2d" in target:
         boxes = target["bboxes_2d"]
-        scaled_boxes = boxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
-        target["bboxes_2d"] = scaled_boxes
-
-    if "bboxes_3d" in target and target["bboxes_3d"].size()[-1] != 0:
-        boxes = target["bboxes_3d"]
-        scaled_boxes = boxes * torch.as_tensor([[ratio_width, ratio_height] for _ in range(8)])
-        target["bboxes_3d"] = scaled_boxes
-
+        if boxes.numel():
+            scaled_boxes = boxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
+            target["bboxes_2d"] = scaled_boxes
+        else:
+            return
     if "area" in target:
         area = target["area"]
         scaled_area = area * (ratio_width * ratio_height)
@@ -139,6 +126,10 @@ def resize(image, target, size, max_size=None):
 
     h, w = size
     target["size"] = torch.tensor([h, w])
+
+    if "masks" in target:
+        target['masks'] = interpolate(
+            target['masks'][:, None].float(), size, mode="nearest")[:, 0] > 0.5
 
     return rescaled_image, target
 
@@ -150,7 +141,7 @@ def pad(image, target, padding):
         return padded_image, None
     target = target.copy()
     # should we do something wrt the original size?
-    target["orig_size"] = torch.tensor(padded_image[::-1])
+    target["size"] = torch.tensor(padded_image.size[::-1])
     if "masks" in target:
         target['masks'] = torch.nn.functional.pad(target['masks'], (0, padding[0], 0, padding[1]))
     return padded_image, target
@@ -210,14 +201,6 @@ class RandomResize(object):
         return resize(img, target, size, self.max_size)
 
 
-class RandomColor(object):
-    def __init__(self):
-        pass
-
-    def __call__(self, img, target=None):
-        pass
-
-
 class RandomPad(object):
     def __init__(self, max_pad):
         self.max_pad = max_pad
@@ -233,7 +216,6 @@ class RandomSelect(object):
     Randomly selects between transforms1 and transforms2,
     with probability p for transforms1 and (1 - p) for transforms2
     """
-
     def __init__(self, transforms1, transforms2, p=0.5):
         self.transforms1 = transforms1
         self.transforms2 = transforms2
@@ -265,45 +247,17 @@ class Normalize(object):
         self.std = std
 
     def __call__(self, image, target=None):
-        # image = F.normalize(image, mean=self.mean, std=self.std)
+        image = F.normalize(image, mean=self.mean, std=self.std)
         if target is None:
             return image, None
         target = target.copy()
         h, w = image.shape[-2:]
         if "bboxes_2d" in target and target["bboxes_2d"].size()[-1] != 0:
             boxes = target["bboxes_2d"]
+            # boxes = box_xyxy_to_cxcywh(boxes)
             boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
-
-            # for i in range(boxes.shape[0]):
-            #     for j in range(boxes.shape[1]):
-            #         if boxes[i][j] > 1:
-            #             boxes[i][j] = 1
             target["bboxes_2d"] = boxes
-
-        if "bboxes_3d" in target and target["bboxes_3d"].size()[-1] != 0:
-            boxes = target["bboxes_3d"]
-            boxes = boxes / torch.tensor([[w, h] for _ in range(8)], dtype=torch.float32)
-            target["bboxes_3d"] = boxes
-
         return image, target
-
-
-class NormalizeInverse(T.Normalize):
-    def __init__(self, mean, std):
-        mean = torch.as_tensor(mean)
-        std = torch.as_tensor(std)
-        std_inv = 1 / (std + 1e-7)
-        mean_inv = -mean * std_inv
-        super().__init__(mean=mean_inv, std=std_inv)
-
-    def __call__(self, image: torch.Tensor, boxes: torch.Tensor = None):
-        image = super().__call__(image.clone()).permute(1, 2, 0)
-        h, w = image.shape[:2]
-        boxes = boxes.clone().cpu().detach()
-        if boxes is not None:
-            boxes = boxes * torch.tensor([w, h, w, h], dtype=torch.float32)
-            boxes = boxes
-        return image.cpu().detach(), boxes
 
 
 class Compose(object):
@@ -322,3 +276,20 @@ class Compose(object):
             format_string += "    {0}".format(t)
         format_string += "\n)"
         return format_string
+
+class NormalizeInverse(T.Normalize):
+    def __init__(self, mean, std):
+        mean = torch.as_tensor(mean)
+        std = torch.as_tensor(std)
+        std_inv = 1 / (std + 1e-7)
+        mean_inv = -mean * std_inv
+        super().__init__(mean=mean_inv, std=std_inv)
+
+    def __call__(self, image: torch.Tensor, boxes: torch.Tensor = None):
+        image = super().__call__(image.clone()).permute(1, 2, 0)
+        h, w = image.shape[:2]
+        boxes = boxes.clone().cpu().detach()
+        if boxes is not None:
+            boxes = boxes * torch.tensor([w, h, w, h], dtype=torch.float32)
+            boxes = boxes
+        return image.cpu().detach(), boxes
