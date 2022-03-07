@@ -254,7 +254,7 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    if args.dataset_name == "kitti" or "UA-DETRAC":
+    if args.dataset_name == "KITTI3D" or "UA-DETRAC3D":
         base_ds = get_orig_data_from_dataset(dataset_val)
 
     if args.frozen_weights is not None:
@@ -339,12 +339,12 @@ def main(args):
             if os.path.exists(past_checkpoint_path):
                 os.remove(past_checkpoint_path)
 
-
-        if epoch % 5 == 0:
-            test_stats, li3d_evaluator = evaluate(
-                model, criterion, postprocessors, data_loader_val, base_ds, device, 
-                args.output_dir, args, epoch, writer
-            )
+        # envaluate
+        # if epoch % 5 == 0:
+        #     test_stats, li3d_evaluator = evaluate(
+        #         model, criterion, postprocessors, data_loader_val, base_ds, device, 
+        #         args.output_dir, args, epoch, writer
+        #     )
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                     #  **{f'test_{k}': v for k, v in test_stats.items()},

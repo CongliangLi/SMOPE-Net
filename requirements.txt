@@ -2,3 +2,9 @@ pycocotools
 tqdm
 cython
 scipy
+plyfile
+fvcore 
+iopath
+pytorch3d
+torchgeometry
+opencv-python

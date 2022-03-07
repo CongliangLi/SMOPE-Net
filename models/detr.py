@@ -556,7 +556,7 @@ def build(args):
     # you should pass `num_classes` to be 2 (max_obj_id + 1).
     # For more details on this, check the following discussion
 
-    # if config["dataset_name"] == "kitti":
+    # if config["dataset_name"] == "KITTI3D":
     #     num_classes = 5
     # else:
     num_classes = config["class_num"]
