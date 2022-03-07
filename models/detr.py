@@ -137,10 +137,10 @@ class SetCriterion(nn.Module):
         idx = self._get_src_permutation_idx(indices)
         
         # ============= 5 classes ===========
-        # target_classes_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
+        target_classes_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
 
         # ============= 2 classes ============
-        target_classes_o = torch.cat([t["class_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
+        # target_classes_o = torch.cat([t["class_ids"][J] for t, (_, J) in zip(targets, indices)]).to(torch.int64)
 
 
         target_classes = torch.full(src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device)
@@ -170,7 +170,7 @@ class SetCriterion(nn.Module):
         # =============== finish debug ===============
 
 
-        # =============== focal loss 1 ====================
+        # =============== focal loss 1 for 2 classes====================
         # src_prob = src_logits.softmax(-1) 
         # src_logits = src_prob.log()
         # src_logits *= (1 - src_prob) ** self.focal_gamma
@@ -178,16 +178,16 @@ class SetCriterion(nn.Module):
         # loss_ce = loss(src_logits.transpose(1, 2), target_classes) / target_classes_o.shape[0]
 
 
-        # =============== focal loss 2 ====================
-        src_prob=torch.softmax(src_logits, dim=-1)
-        p=src_prob[:,:,0]
-        # loss = -(1 - self.focal_alpha)*(1-p)**self.focal_gamma*(1 - target_classes)*torch.log(p)-\
+        # =============== focal loss 2 for 2 classes====================
+        # src_prob=torch.softmax(src_logits, dim=-1)
+        # p=src_prob[:,:,0]
+        # # loss = -(1 - self.focal_alpha)*(1-p)**self.focal_gamma*(1 - target_classes)*torch.log(p)-\
+        # #        self.focal_alpha*p**self.focal_gamma*target_classes*torch.log(1-p)
+        # loss = - 1*(1-p)**self.focal_gamma*(1 - target_classes)*torch.log(p)-\
         #        self.focal_alpha*p**self.focal_gamma*target_classes*torch.log(1-p)
-        loss = - 1*(1-p)**self.focal_gamma*(1 - target_classes)*torch.log(p)-\
-               self.focal_alpha*p**self.focal_gamma*target_classes*torch.log(1-p)
-        loss_ce = loss.sum()/ target_classes_o.shape[0]
+        # loss_ce = loss.sum()/ target_classes_o.shape[0]
 
-        # =============== focal loss 3 ====================
+        # =============== focal loss 3 for 2 classes====================
         # src_pred = src_logits.argmax(-1).type(torch.float32)
 
         # at = self.empty_weight.gather(0, target_classes.data.view(-1)).view_as(target_classes)
@@ -198,6 +198,21 @@ class SetCriterion(nn.Module):
         # pt = torch.exp(-BCE_loss)      
         # F_loss = at*(1-pt)**self.focal_gamma * BCE_loss
         # loss_ce = F_loss.sum() / target_classes_o.shape[0]
+
+
+        # =============== focal loss for 5 classes====================
+        # pt = torch.softmax(src_logits, dim=-1)
+        # class_mask = F.one_hot(target_classes, self.num_classes + 1)
+        
+        # ids = target_classes.view(-1, 1)
+        # weights = self.empty_weight[ids.data.view(-1)].view(-1,1)
+
+        # probs = (pt * class_mask).sum(-1).view(-1, 1)
+        # log_p = probs.log()
+
+        # loss_all = -weights * (torch.pow((1 - probs), self.focal_gamma)) * log_p
+        # loss_ce = loss_all.sum() / target_classes_o.shape[0]
+
 
 
         # =============== ce loss ========================
@@ -595,7 +610,6 @@ def build(args):
         weight_dict["pose_6dof_add"] = args.model_6dof_add_weight
         weight_dict["pose_6dof_fps_points_3d"] = args.model_6dof_fps_points_weight
 
-    # TODO this is a hack
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):

@@ -1,14 +1,6 @@
-# ------------------------------------------------------------------------
-# Deformable DETR
-# Copyright (c) 2020 SenseTime. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
-# ------------------------------------------------------------------------
-# Modified from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# ------------------------------------------------------------------------
-
 import torch.utils.data
-from .torchvision_datasets import CocoDetection
+import torchvision
 
 from .coco import build as build_coco
 
@@ -19,7 +11,7 @@ def get_coco_api_from_dataset(dataset):
         #     break
         if isinstance(dataset, torch.utils.data.Subset):
             dataset = dataset.dataset
-    if isinstance(dataset, CocoDetection):
+    if isinstance(dataset, torchvision.datasets.CocoDetection):
         return dataset.coco
 
 

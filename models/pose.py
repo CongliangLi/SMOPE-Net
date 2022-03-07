@@ -1,6 +1,5 @@
 import io
 from collections import defaultdict
-import re
 from typing import List, Optional
 
 import torch
@@ -96,7 +95,7 @@ class PoseHeadSmallLinear(nn.Module):
 
         ## for model class
         x_c = self.l2(x)
-        x_c = self.l3(x_c)
+        x_c = F.relu(self.l3(x_c))
         x_c = F.softmax(x_c.squeeze(-1), dim=-1)
 
         ## for pose 6dof
@@ -106,8 +105,7 @@ class PoseHeadSmallLinear(nn.Module):
         ## make the quaternion obey the rules as follows
         ### w**2 + x**2 + y**2 + z**2 = 1
         x_f, x_l = torch.split(x_p, [3, 4], dim=-1)
-        # to escape the inf and nan case in backward
-        x_l = x_l / (torch.linalg.norm(x_l, 2, dim=-1, keepdim=True) + 1e-10)
+        x_l = x_l.softmax(dim=-1).sqrt()
         x_p = torch.cat((x_f, x_l), dim=-1)
         return x_c, x_p
 
@@ -130,73 +128,28 @@ class DETRpose(nn.Module):
         self.pose_head = PoseHeadSmallLinear(hidden_dim, nheads)
 
     def forward(self, samples: NestedTensor):
-        # if isinstance(samples, (list, torch.Tensor)):
-        #     samples = nested_tensor_from_tensor_list(samples)
+        if isinstance(samples, (list, torch.Tensor)):
+            samples = nested_tensor_from_tensor_list(samples)
 
-        # features, pos = self.detr.backbone(samples)
+        features, pos = self.detr.backbone(samples)
 
-        # srcs = []
-        # masks = []
-        # for l, feat in enumerate(features):
-        #     src, mask = feat.decompose()
-        #     srcs.append(self.detr.input_proj[l](src))
-        #     masks.append(mask)
-        #     assert mask is not None
-        # if self.detr.num_feature_levels > len(srcs):
-        #     _len_srcs = len(srcs)
-        #     for l in range(_len_srcs, self.detr.num_feature_levels):
-        #         if l == _len_srcs:
-        #             src = self.detr.input_proj[l](features[-1].tensors)
-        #         else:
-        #             src = self.detr.input_proj[l](srcs[-1])
-        #         m = samples.mask
-        #         mask = F.interpolate(m[None].float(), size=src.shape[-2:]).to(torch.bool)[0]
-        #         pos_l = self.detr.backbone[1](NestedTensor(src, mask)).to(src.dtype)
-        #         srcs.append(src)
-        #         masks.append(mask)
-        #         pos.append(pos_l)
+        bs = features[-1].tensors.shape[0]
 
-        # query_embeds = None
-        # if not self.detr.two_stage:
-        #     query_embeds = self.detr.query_embed.weight
+        src, mask = features[-1].decompose()
+        assert mask is not None
+        src_proj = self.detr.input_proj(src)
+        hs, memory = self.detr.transformer(src_proj, mask, self.detr.query_embed.weight, pos[-1])
 
-        # bs = features[-1].tensors.shape[0]
+        outputs_class = self.detr.class_embed(hs)
+        outputs_coord = self.detr.bbox_embed(hs).sigmoid()
 
-        # hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact = self.detr.transformer(srcs, masks, pos, query_embeds)
+        out = {
+            "pred_logits": outputs_class[-1],
+            "pred_boxes": outputs_coord[-1]
+        }
 
-        # outputs_classes = []
-        # outputs_coords = []
-        # for lvl in range(hs.shape[0]):
-        #     if lvl == 0:
-        #         reference = init_reference
-        #     else:
-        #         reference = inter_references[lvl - 1]
-        #     reference = inverse_sigmoid(reference)
-        #     outputs_class = self.detr.class_embed[lvl](hs[lvl])
-        #     tmp = self.detr.bbox_embed[lvl](hs[lvl])
-        #     if reference.shape[-1] == 4:
-        #         tmp += reference
-        #     else:
-        #         assert reference.shape[-1] == 2
-        #         tmp[..., :2] += reference
-        #     outputs_coord = tmp.sigmoid()
-        #     outputs_classes.append(outputs_class)
-        #     outputs_coords.append(outputs_coord)
-
-        # outputs_class = torch.stack(outputs_classes)
-        # outputs_coord = torch.stack(outputs_coords)
-
-        # assert not torch.isnan(outputs_class[-1]).all()
-
-        # out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]}
-        # if self.detr.aux_loss:
-        #     out['aux_outputs'] = self.detr._set_aux_loss(outputs_class, outputs_coord)
-
-
-
-        out, hs = self.detr(samples)
-
-        bs = samples.tensors.shape[0]
+        if self.detr.aux_loss:
+            out["aux_outputs"] = self.detr._set_aux_loss(outputs_class, outputs_coord)
 
         # 3d model and query attention
         # 1. get the feature of 3d model
@@ -246,8 +199,8 @@ class PostProcessPose(nn.Module):
         assert len(out_logits) == len(target_sizes)
         assert target_sizes.shape[1] == 2
 
-        prob = F.softmax(out_logits, -1) 
-        scores, labels = prob[..., :-1].max(-1)
+        prob = F.softmax(out_logits, -1)
+        scores, labels = prob.max(-1)
 
         # convert to [x0, y0, x1, y1] format
         # boxes = box_ops.box_cxcywh_to_xyxy(out_bboxes_2d)

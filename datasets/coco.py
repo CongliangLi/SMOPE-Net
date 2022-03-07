@@ -1,12 +1,4 @@
-# ------------------------------------------------------------------------
-# Deformable DETR
-# Copyright (c) 2020 SenseTime. All Rights Reserved.
-# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
-# ------------------------------------------------------------------------
-# Modified from DETR (https://github.com/facebookresearch/detr)
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# ------------------------------------------------------------------------
-
 """
 COCO dataset which returns image_id for evaluation.
 
@@ -16,17 +8,15 @@ from pathlib import Path
 
 import torch
 import torch.utils.data
+import torchvision
 from pycocotools import mask as coco_mask
 
-from .torchvision_datasets import CocoDetection as TvCocoDetection
-from util.misc import get_local_rank, get_local_size
 import datasets.transforms as T
 
 
-class CocoDetection(TvCocoDetection):
-    def __init__(self, img_folder, ann_file, transforms, return_masks, cache_mode=False, local_rank=0, local_size=1):
-        super(CocoDetection, self).__init__(img_folder, ann_file,
-                                            cache_mode=cache_mode, local_rank=local_rank, local_size=local_size)
+class CocoDetection(torchvision.datasets.CocoDetection):
+    def __init__(self, img_folder, ann_file, transforms, return_masks):
+        super(CocoDetection, self).__init__(img_folder, ann_file)
         self._transforms = transforms
         self.prepare = ConvertCocoPolysToMask(return_masks)
 
@@ -164,6 +154,5 @@ def build(image_set, args):
     }
 
     img_folder, ann_file = PATHS[image_set]
-    dataset = CocoDetection(img_folder, ann_file, transforms=make_coco_transforms(image_set), return_masks=args.masks,
-                            cache_mode=args.cache_mode, local_rank=get_local_rank(), local_size=get_local_size())
+    dataset = CocoDetection(img_folder, ann_file, transforms=make_coco_transforms(image_set), return_masks=args.masks)
     return dataset

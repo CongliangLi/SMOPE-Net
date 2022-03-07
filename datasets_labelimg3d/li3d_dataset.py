@@ -4,6 +4,8 @@ import torch
 from pathlib import Path
 import os
 import numpy as np
+from yaml import compose
+from configs import config
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import json
@@ -14,7 +16,7 @@ from util.utils import get_camera_intrinsics, RMatrix_2_RQuaternion, RQuaternion
 from PIL import Image
 import datasets_labelimg3d.transforms as T
 from pytorch3d.io import load_obj, save_obj
-from torchvision import transforms
+
 from configs import cfg, config
 
 # Set the device
@@ -69,12 +71,11 @@ class SingleAnnotationParser:
             "bboxes_3d": torch.tensor(self.bboxes_3d),
             "bboxes_3d_w": torch.tensor(self.bboxes_3d_w),
             "model_ids": torch.tensor(self.model_ids).long(),
-            "labels": torch.tensor(self.class_ids).long(),
+            "class_ids": torch.tensor(self.class_ids).long(),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o),
-            "R_quaternion_c2o": torch.tensor(self.R_quaternion_c2o),
-            "R_euler_c2o": torch.tensor(self.R_euler_c2o),
-            'orig_size': torch.tensor(self.orig_size),
-            "img_path": torch.tensor(int(self.img_path.split("/")[-1].split(".")[0]))
+            "R_quaternion_c2o": torch.Tensor(self.R_quaternion_c2o),
+            # "R_euler_c2o": torch.tensor(self.R_euler_c2o),
+            'orig_size': torch.tensor(self.orig_size)
         }
         return img, targets
 
@@ -138,9 +139,41 @@ class Li3dDataset(Dataset):
 
 
 def make_transforms(image_set):
+    # normalize = T.Compose([
+    #     T.ToTensor(),
+    #     T.Normalize(config["pixel_mean"], config["pixel_std"])
+    # ])
+
+    # scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+
+    # if image_set == 'train':
+    #     return T.Compose([
+    #         T.RandomResize([config["image_height"]]),
+    #         normalize,
+    #     ])
+    #     # return T.Compose([
+    #     #     T.RandomSelect(
+    #     #         T.RandomResize(scales, max_size=1333),
+    #     #         T.Compose([
+    #     #             T.RandomResize([400, 500, 600]),
+    #     #             T.RandomSizeCrop(384, 600),
+    #     #             T.RandomResize(scales, max_size=1333),
+    #     #         ])CLASSES = ['vehicle', 'bus/van', 'others']
+    #     #     ),
+    #     #     normalize,
+    #     # ])
+
+    # if image_set == 'val':
+    #     return T.Compose([
+    #         T.RandomResize([config["image_height"]]),
+    #         normalize,
+    #     ])
+
+
+    # #### origin
     normalize = T.Compose([
         T.ToTensor(),
-        T.Normalize(config["pixel_mean"], config["pixel_std"])
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
     scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
@@ -161,15 +194,18 @@ def make_transforms(image_set):
 
     if image_set == 'val':
         return T.Compose([
-            T.RandomResize([config["image_height"]]),
+            T.RandomResize([800], max_size=1333),
             normalize,
         ])
 
     raise ValueError(f'unknown {image_set}')
 
 
-def build(image_set, args):
-    root = Path(args.dataset_path) / image_set
+
+
+
+def build(image_set, config):
+    root = Path(config["dataset_path"]) / image_set
     assert root.exists(), f'provided labelImg3d scene folder path {root} does not exist'
     PATHS = {
         "train": (root / "images", root / "annotations"),

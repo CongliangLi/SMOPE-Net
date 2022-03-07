@@ -1,169 +1,263 @@
-# Deformable DETR
+**DE⫶TR**: End-to-End Object Detection with Transformers
+========
+PyTorch training code and pretrained models for **DETR** (**DE**tection **TR**ansformer).
+We replace the full complex hand-crafted object detection pipeline with a Transformer, and match Faster R-CNN with a ResNet-50, obtaining **42 AP** on COCO using half the computation power (FLOPs) and the same number of parameters. Inference in 50 lines of PyTorch.
 
-By [Xizhou Zhu](https://scholar.google.com/citations?user=02RXI00AAAAJ),  [Weijie Su](https://www.weijiesu.com/),  [Lewei Lu](https://www.linkedin.com/in/lewei-lu-94015977/), [Bin Li](http://staff.ustc.edu.cn/~binli/), [Xiaogang Wang](http://www.ee.cuhk.edu.hk/~xgwang/), [Jifeng Dai](https://jifengdai.org/).
+![DETR](.github/DETR.png)
 
-This repository is an official implementation of the paper [Deformable DETR: Deformable Transformers for End-to-End Object Detection](https://arxiv.org/abs/2010.04159).
+**What it is**. Unlike traditional computer vision techniques, DETR approaches object detection as a direct set prediction problem. It consists of a set-based global loss, which forces unique predictions via bipartite matching, and a Transformer encoder-decoder architecture. 
+Given a fixed small set of learned object queries, DETR reasons about the relations of the objects and the global image context to directly output the final set of predictions in parallel. Due to this parallel nature, DETR is very fast and efficient.
 
+**About the code**. We believe that object detection should not be more difficult than classification,
+and should not require complex libraries for training and inference.
+DETR is very simple to implement and experiment with, and we provide a
+[standalone Colab Notebook](https://colab.research.google.com/github/facebookresearch/detr/blob/colab/notebooks/detr_demo.ipynb)
+showing how to do inference with DETR in only a few lines of PyTorch code.
+Training code follows this idea - it is not a library,
+but simply a [main.py](main.py) importing model and criterion
+definitions with standard training loops.
 
-## Introduction
+Additionnally, we provide a Detectron2 wrapper in the d2/ folder. See the readme there for more information.
 
-**TL; DR.** Deformable DETR is an efficient and fast-converging end-to-end object detector. It mitigates the high complexity and slow convergence issues of DETR via a novel sampling-based efficient attention mechanism.  
+For details see [End-to-End Object Detection with Transformers](https://ai.facebook.com/research/publications/end-to-end-object-detection-with-transformers) by Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, and Sergey Zagoruyko.
 
-![deformable_detr](./figs/illustration.png)
+# Model Zoo
+We provide baseline DETR and DETR-DC5 models, and plan to include more in future.
+AP is computed on COCO 2017 val5k, and inference time is over the first 100 val5k COCO images,
+with torchscript transformer.
 
-![deformable_detr](./figs/convergence.png)
+<table>
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>name</th>
+      <th>backbone</th>
+      <th>schedule</th>
+      <th>inf_time</th>
+      <th>box AP</th>
+      <th>url</th>
+      <th>size</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>DETR</td>
+      <td>R50</td>
+      <td>500</td>
+      <td>0.036</td>
+      <td>42.0</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth">model</a>&nbsp;|&nbsp;<a href="https://dl.fbaipublicfiles.com/detr/logs/detr-r50_log.txt">logs</a></td>
+      <td>159Mb</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>DETR-DC5</td>
+      <td>R50</td>
+      <td>500</td>
+      <td>0.083</td>
+      <td>43.3</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r50-dc5-f0fb7ef5.pth">model</a>&nbsp;|&nbsp;<a href="https://dl.fbaipublicfiles.com/detr/logs/detr-r50-dc5_log.txt">logs</a></td>
+      <td>159Mb</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>DETR</td>
+      <td>R101</td>
+      <td>500</td>
+      <td>0.050</td>
+      <td>43.5</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r101-2c7b67e5.pth">model</a>&nbsp;|&nbsp;<a href="https://dl.fbaipublicfiles.com/detr/logs/detr-r101_log.txt">logs</a></td>
+      <td>232Mb</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>DETR-DC5</td>
+      <td>R101</td>
+      <td>500</td>
+      <td>0.097</td>
+      <td>44.9</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r101-dc5-a2e86def.pth">model</a>&nbsp;|&nbsp;<a href="https://dl.fbaipublicfiles.com/detr/logs/detr-r101-dc5_log.txt">logs</a></td>
+      <td>232Mb</td>
+    </tr>
+  </tbody>
+</table>
 
-**Abstract.** DETR has been recently proposed to eliminate the need for many hand-designed components in object detection while demonstrating good performance. However, it suffers from slow convergence and limited feature spatial resolution, due to the limitation of Transformer attention modules in processing image feature maps. To mitigate these issues, we proposed Deformable DETR, whose attention modules only attend to a small set of key sampling points around a reference. Deformable DETR can achieve better performance than DETR (especially on small objects) with 10× less training epochs. Extensive experiments on the COCO benchmark demonstrate the effectiveness of our approach.
+COCO val5k evaluation results can be found in this [gist](https://gist.github.com/szagoruyko/9c9ebb8455610958f7deaa27845d7918).
 
-## License
-
-This project is released under the [Apache 2.0 license](./LICENSE).
-
-## Changelog
-
-See [changelog.md](./docs/changelog.md) for detailed logs of major changes. 
-
-
-## Citing Deformable DETR
-If you find Deformable DETR useful in your research, please consider citing:
-```bibtex
-@article{zhu2020deformable,
-  title={Deformable DETR: Deformable Transformers for End-to-End Object Detection},
-  author={Zhu, Xizhou and Su, Weijie and Lu, Lewei and Li, Bin and Wang, Xiaogang and Dai, Jifeng},
-  journal={arXiv preprint arXiv:2010.04159},
-  year={2020}
-}
+The models are also available via torch hub,
+to load DETR R50 with pretrained weights simply do:
+```python
+model = torch.hub.load('facebookresearch/detr:main', 'detr_resnet50', pretrained=True)
 ```
 
-## Main Results
 
-| <sub><sub>Method</sub></sub>   | <sub><sub>Epochs</sub></sub> | <sub><sub>AP</sub></sub> | <sub><sub>AP<sub>S</sub></sub></sub> | <sub><sub>AP<sub>M</sub></sub></sub> | <sub><sub>AP<sub>L</sub></sub></sub> | <sub><sub>params<br>(M)</sub></sub> | <sub><sub>FLOPs<br>(G)</sub></sub> | <sub><sub>Total<br>Train<br>Time<br>(GPU<br/>hours)</sub></sub> | <sub><sub>Train<br/>Speed<br>(GPU<br/>hours<br/>/epoch)</sub></sub> | <sub><sub>Infer<br/>Speed<br/>(FPS)</sub></sub> | <sub><sub>Batch<br/>Infer<br/>Speed<br>(FPS)</sub></sub> | <sub><sub>URL</sub></sub>                     |
-| ----------------------------------- | :----: | :--: | :----: | :---: | :------------------------------: | :--------------------:| :----------------------------------------------------------: | :--: | :---: | :---: | ----- | ----- |
-| <sub><sub>Faster R-CNN + FPN</sub></sub> | <sub>109</sub> | <sub>42.0</sub> | <sub>26.6</sub> | <sub>45.4</sub> | <sub>53.4</sub> | <sub>42</sub> | <sub>180</sub> | <sub>380</sub> | <sub>3.5</sub> | <sub>25.6</sub> | <sub>28.0</sub> | <sub>-</sub> |
-| <sub><sub>DETR</sub></sub> | <sub>500</sub> | <sub>42.0</sub> | <sub>20.5</sub> | <sub>45.8</sub> | <sub>61.1</sub> | <sub>41</sub> | <sub>86</sub> | <sub>2000</sub> | <sub>4.0</sub> |     <sub>27.0</sub>       |         <sub>38.3</sub>           | <sub>-</sub> |
-| <sub><sub>DETR-DC5</sub></sub>      | <sub>500</sub> | <sub>43.3</sub> | <sub>22.5</sub> | <sub>47.3</sub> | <sub>61.1</sub> | <sub>41</sub> |<sub>187</sub>|<sub>7000</sub>|<sub>14.0</sub>|<sub>11.4</sub>|<sub>12.4</sub>| <sub>-</sub> |
-| <sub><sub>DETR-DC5</sub></sub>      | <sub>50</sub> | <sub>35.3</sub> | <sub>15.2</sub> | <sub>37.5</sub> | <sub>53.6</sub> | <sub>41</sub> |<sub>187</sub>|<sub>700</sub>|<sub>14.0</sub>|<sub>11.4</sub>|<sub>12.4</sub>| <sub>-</sub> |
-| <sub><sub>DETR-DC5+</sub></sub>     | <sub>50</sub> | <sub>36.2</sub> | <sub>16.3</sub> | <sub>39.2</sub> | <sub>53.9</sub> | <sub>41</sub> |<sub>187</sub>|<sub>700</sub>|<sub>14.0</sub>|<sub>11.4</sub>|<sub>12.4</sub>| <sub>-</sub> |
-| **<sub><sub>Deformable DETR<br>(single scale)</sub></sub>** | <sub>50</sub> | <sub>39.4</sub> | <sub>20.6</sub> | <sub>43.0</sub> | <sub>55.5</sub> | <sub>34</sub> |<sub>78</sub>|<sub>160</sub>|<sub>3.2</sub>|<sub>27.0</sub>|<sub>42.4</sub>| <sub>[config](./configs/r50_deformable_detr_single_scale.sh)<br/>[log](https://drive.google.com/file/d/1n3ZnZ-UAqmTUR4AZoM4qQntIDn6qCZx4/view?usp=sharing)<br/>[model](https://drive.google.com/file/d/1WEjQ9_FgfI5sw5OZZ4ix-OKk-IJ_-SDU/view?usp=sharing)</sub> |
-| **<sub><sub>Deformable DETR<br>(single scale, DC5)</sub></sub>** | <sub>50</sub> | <sub>41.5</sub> | <sub>24.1</sub> | <sub>45.3</sub> | <sub>56.0</sub> | <sub>34</sub> |<sub>128</sub>|<sub>215</sub>|<sub>4.3</sub>|<sub>22.1</sub>|<sub>29.4</sub>| <sub>[config](./configs/r50_deformable_detr_single_scale_dc5.sh)<br/>[log](https://drive.google.com/file/d/1-UfTp2q4GIkJjsaMRIkQxa5k5vn8_n-B/view?usp=sharing)<br/>[model](https://drive.google.com/file/d/1m_TgMjzH7D44fbA-c_jiBZ-xf-odxGdk/view?usp=sharing)</sub> |
-| **<sub><sub>Deformable DETR</sub></sub>** | <sub>50</sub> | <sub>44.5</sub> | <sub>27.1</sub> | <sub>47.6</sub> | <sub>59.6</sub> | <sub>40</sub> |<sub>173</sub>|<sub>325</sub>|<sub>6.5</sub>|<sub>15.0</sub>|<sub>19.4</sub>|<sub>[config](./configs/r50_deformable_detr.sh)<br/>[log](https://drive.google.com/file/d/18YSLshFjc_erOLfFC-hHu4MX4iyz1Dqr/view?usp=sharing)<br/>[model](https://drive.google.com/file/d/1nDWZWHuRwtwGden77NLM9JoWe-YisJnA/view?usp=sharing)</sub>                   |
-| **<sub><sub>+ iterative bounding box refinement</sub></sub>** | <sub>50</sub> | <sub>46.2</sub> | <sub>28.3</sub> | <sub>49.2</sub> | <sub>61.5</sub> | <sub>41</sub> |<sub>173</sub>|<sub>325</sub>|<sub>6.5</sub>|<sub>15.0</sub>|<sub>19.4</sub>|<sub>[config](./configs/r50_deformable_detr_plus_iterative_bbox_refinement.sh)<br/>[log](https://drive.google.com/file/d/1DFNloITi1SFBWjYzvVEAI75ndwmGM1Uj/view?usp=sharing)<br/>[model](https://drive.google.com/file/d/1JYKyRYzUH7uo9eVfDaVCiaIGZb5YTCuI/view?usp=sharing)</sub> |
-| **<sub><sub>++ two-stage Deformable DETR</sub></sub>** | <sub>50</sub> | <sub>46.9</sub> | <sub>29.6</sub> | <sub>50.1</sub> | <sub>61.6</sub> | <sub>41</sub> |<sub>173</sub>|<sub>340</sub>|<sub>6.8</sub>|<sub>14.5</sub>|<sub>18.8</sub>|<sub>[config](./configs/r50_deformable_detr_plus_iterative_bbox_refinement_plus_plus_two_stage.sh)<br/>[log](https://drive.google.com/file/d/1ozi0wbv5-Sc5TbWt1jAuXco72vEfEtbY/view?usp=sharing) <br/>[model](https://drive.google.com/file/d/15I03A7hNTpwuLNdfuEmW9_taZMNVssEp/view?usp=sharing)</sub> |
+COCO panoptic val5k models:
+<table>
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>name</th>
+      <th>backbone</th>
+      <th>box AP</th>
+      <th>segm AP</th>
+      <th>PQ</th>
+      <th>url</th>
+      <th>size</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>DETR</td>
+      <td>R50</td>
+      <td>38.8</td>
+      <td>31.1</td>
+      <td>43.4</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r50-panoptic-00ce5173.pth">download</a></td>
+      <td>165Mb</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>DETR-DC5</td>
+      <td>R50</td>
+      <td>40.2</td>
+      <td>31.9</td>
+      <td>44.6</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r50-dc5-panoptic-da08f1b1.pth">download</a></td>
+      <td>165Mb</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>DETR</td>
+      <td>R101</td>
+      <td>40.1</td>
+      <td>33</td>
+      <td>45.1</td>
+      <td><a href="https://dl.fbaipublicfiles.com/detr/detr-r101-panoptic-40021d53.pth">download</a></td>
+      <td>237Mb</td>
+    </tr>
+  </tbody>
+</table>
 
-*Note:*
+Checkout our [panoptic colab](https://colab.research.google.com/github/facebookresearch/detr/blob/colab/notebooks/DETR_panoptic.ipynb)
+to see how to use and visualize DETR's panoptic segmentation prediction.
 
-1. All models of Deformable DETR are trained with total batch size of 32. 
-2. Training and inference speed are measured on NVIDIA Tesla V100 GPU.
-3. "Deformable DETR (single scale)" means only using res5 feature map (of stride 32) as input feature maps for Deformable Transformer Encoder.
-4. "DC5" means removing the stride in C5 stage of ResNet and add a dilation of 2 instead.
-5. "DETR-DC5+" indicates DETR-DC5 with some modifications, including using Focal Loss for bounding box classification and increasing number of object queries to 300.
-6. "Batch Infer Speed" refer to inference with batch size = 4  to maximize GPU utilization.
-7. The original implementation is based on our internal codebase. There are slight differences in the final accuracy and running time due to the plenty details in platform switch.
+# Notebooks
+
+We provide a few notebooks in colab to help you get a grasp on DETR:
+* [DETR's hands on Colab Notebook](https://colab.research.google.com/github/facebookresearch/detr/blob/colab/notebooks/detr_attention.ipynb): Shows how to load a model from hub, generate predictions, then visualize the attention of the model (similar to the figures of the paper)
+* [Standalone Colab Notebook](https://colab.research.google.com/github/facebookresearch/detr/blob/colab/notebooks/detr_demo.ipynb): In this notebook, we demonstrate how to implement a simplified version of DETR from the grounds up in 50 lines of Python, then visualize the predictions. It is a good starting point if you want to gain better understanding the architecture and poke around before diving in the codebase.
+* [Panoptic Colab Notebook](https://colab.research.google.com/github/facebookresearch/detr/blob/colab/notebooks/DETR_panoptic.ipynb): Demonstrates how to use DETR for panoptic segmentation and plot the predictions.
 
 
-## Installation
+# Usage - Object detection
+There are no extra compiled components in DETR and package dependencies are minimal,
+so the code is very simple to use. We provide instructions how to install dependencies via conda.
+First, clone the repository locally:
+```
+git clone https://github.com/facebookresearch/detr.git
+```
+Then, install PyTorch 1.5+ and torchvision 0.6+:
+```
+conda install -c pytorch pytorch torchvision
+```
+Install pycocotools (for evaluation on COCO) and scipy (for training):
+```
+conda install cython scipy
+pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
+```
+That's it, should be good to train and evaluate detection models.
 
-### Requirements
-
-* Linux, CUDA>=9.2, GCC>=5.4
-  
-* Python>=3.7
-
-    We recommend you to use Anaconda to create a conda environment:
-    ```bash
-    conda create -n deformable_detr python=3.7 pip
-    ```
-    Then, activate the environment:
-    ```bash
-    conda activate deformable_detr
-    ```
-  
-* PyTorch>=1.5.1, torchvision>=0.6.1 (following instructions [here](https://pytorch.org/))
-
-    For example, if your CUDA version is 9.2, you could install pytorch and torchvision as following:
-    ```bash
-    conda install pytorch=1.5.1 torchvision=0.6.1 cudatoolkit=9.2 -c pytorch
-    ```
-  
-* Other requirements
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-### Compiling CUDA operators
-```bash
-cd ./models/ops
-sh ./make.sh
-# unit test (should see all checking is True)
-python test.py
+(optional) to work with panoptic install panopticapi:
+```
+pip install git+https://github.com/cocodataset/panopticapi.git
 ```
 
-## Usage
+## Data preparation
 
-### Dataset preparation
-
-Please download [COCO 2017 dataset](https://cocodataset.org/) and organize them as following:
-
+Download and extract COCO 2017 train and val images with annotations from
+[http://cocodataset.org](http://cocodataset.org/#download).
+We expect the directory structure to be the following:
 ```
-code_root/
-└── data/
-    └── coco/
-        ├── train2017/
-        ├── val2017/
-        └── annotations/
-        	├── instances_train2017.json
-        	└── instances_val2017.json
+path/to/coco/
+  annotations/  # annotation json files
+  train2017/    # train images
+  val2017/      # val images
 ```
 
-### Training
+## Training
+To train baseline DETR on a single node with 8 gpus for 300 epochs run:
+```
+python -m torch.distributed.launch --nproc_per_node=8 --use_env main.py --coco_path /path/to/coco 
+```
+A single epoch takes 28 minutes, so 300 epoch training
+takes around 6 days on a single machine with 8 V100 cards.
+To ease reproduction of our results we provide
+[results and training logs](https://gist.github.com/szagoruyko/b4c3b2c3627294fc369b899987385a3f)
+for 150 epoch schedule (3 days on a single machine), achieving 39.5/60.3 AP/AP50.
 
-#### Training on single node
+We train DETR with AdamW setting learning rate in the transformer to 1e-4 and 1e-5 in the backbone.
+Horizontal flips, scales and crops are used for augmentation.
+Images are rescaled to have min size 800 and max size 1333.
+The transformer is trained with dropout of 0.1, and the whole model is trained with grad clip of 0.1.
 
-For example, the command for training Deformable DETR on 8 GPUs is as following:
 
-```bash
-GPUS_PER_NODE=8 ./tools/run_dist_launch.sh 8 ./configs/r50_deformable_detr.sh
+## Evaluation
+To evaluate DETR R50 on COCO val5k with a single GPU run:
+```
+python main.py --batch_size 2 --no_aux_loss --eval --resume https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth --coco_path /path/to/coco
+```
+We provide results for all DETR detection models in this
+[gist](https://gist.github.com/szagoruyko/9c9ebb8455610958f7deaa27845d7918).
+Note that numbers vary depending on batch size (number of images) per GPU.
+Non-DC5 models were trained with batch size 2, and DC5 with 1,
+so DC5 models show a significant drop in AP if evaluated with more
+than 1 image per GPU.
+
+## Multinode training
+Distributed training is available via Slurm and [submitit](https://github.com/facebookincubator/submitit):
+```
+pip install submitit
+```
+Train baseline DETR-6-6 model on 4 nodes for 300 epochs:
+```
+python run_with_submitit.py --timeout 3000 --coco_path /path/to/coco
 ```
 
-#### Training on multiple nodes
+# Usage - Segmentation
 
-For example, the command for training Deformable DETR on 2 nodes of each with 8 GPUs is as following:
+We show that it is relatively straightforward to extend DETR to predict segmentation masks. We mainly demonstrate strong panoptic segmentation results.
 
-On node 1:
+## Data preparation
 
-```bash
-MASTER_ADDR=<IP address of node 1> NODE_RANK=0 GPUS_PER_NODE=8 ./tools/run_dist_launch.sh 16 ./configs/r50_deformable_detr.sh
+For panoptic segmentation, you need the panoptic annotations additionally to the coco dataset (see above for the coco dataset). You need to download and extract the [annotations](http://images.cocodataset.org/annotations/panoptic_annotations_trainval2017.zip).
+We expect the directory structure to be the following:
+```
+path/to/coco_panoptic/
+  annotations/  # annotation json files
+  panoptic_train2017/    # train panoptic annotations
+  panoptic_val2017/      # val panoptic annotations
 ```
 
-On node 2:
+## Training
 
-```bash
-MASTER_ADDR=<IP address of node 1> NODE_RANK=1 GPUS_PER_NODE=8 ./tools/run_dist_launch.sh 16 ./configs/r50_deformable_detr.sh
+We recommend training segmentation in two stages: first train DETR to detect all the boxes, and then train the segmentation head.
+For panoptic segmentation, DETR must learn to detect boxes for both stuff and things classes. You can train it on a single node with 8 gpus for 300 epochs with:
 ```
-
-#### Training on slurm cluster
-
-If you are using slurm cluster, you can simply run the following command to train on 1 node with 8 GPUs:
-
-```bash
-GPUS_PER_NODE=8 ./tools/run_dist_slurm.sh <partition> deformable_detr 8 configs/r50_deformable_detr.sh
+python -m torch.distributed.launch --nproc_per_node=8 --use_env main.py --coco_path /path/to/coco  --coco_panoptic_path /path/to/coco_panoptic --dataset_file coco_panoptic --output_dir /output/path/box_model
 ```
+For instance segmentation, you can simply train a normal box model (or used a pre-trained one we provide).
 
-Or 2 nodes of  each with 8 GPUs:
-
-```bash
-GPUS_PER_NODE=8 ./tools/run_dist_slurm.sh <partition> deformable_detr 16 configs/r50_deformable_detr.sh
+Once you have a box model checkpoint, you need to freeze it, and train the segmentation head in isolation.
+For panoptic segmentation you can train on a single node with 8 gpus for 25 epochs:
 ```
-#### Some tips to speed-up training
-* If your file system is slow to read images, you may consider enabling '--cache_mode' option to load whole dataset into memory at the beginning of training.
-* You may increase the batch size to maximize the GPU utilization, according to GPU memory of yours, e.g., set '--batch_size 3' or '--batch_size 4'.
-
-### Evaluation
-
-You can get the config file and pretrained model of Deformable DETR (the link is in "Main Results" session), then run following command to evaluate it on COCO 2017 validation set:
-
-```bash
-<path to config file> --resume <path to pre-trained model> --eval
+python -m torch.distributed.launch --nproc_per_node=8 --use_env main.py --masks --epochs 25 --lr_drop 15 --coco_path /path/to/coco  --coco_panoptic_path /path/to/coco_panoptic  --dataset_file coco_panoptic --frozen_weights /output/path/box_model/checkpoint.pth --output_dir /output/path/segm_model
 ```
+For instance segmentation only, simply remove the `dataset_file` and `coco_panoptic_path` arguments from the above command line.
 
-You can also run distributed evaluation by using ```./tools/run_dist_launch.sh``` or ```./tools/run_dist_slurm.sh```.
+# License
+DETR is released under the Apache 2.0 license. Please see the [LICENSE](LICENSE) file for more information.
+
+# Contributing
+We actively welcome your pull requests! Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) for more info.

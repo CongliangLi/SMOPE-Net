@@ -9,9 +9,14 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "args": [
-            ]
+            "console": "integratedTerminal"
         }
+        // {
+        //     "name": "Python: creat_dataset.py",
+        //     "type": "python",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/datasets_labelimg3d/creat_dataset.py",
+        //     "console": "integratedTerminal"
+        // }
     ]
 }

@@ -1,14 +1,14 @@
 {
   "dataset_name": "kitti",
   "dataset_path": "/mnt/data3/CongliangLi/DETR/data/kitti",
-  "poses": true,
-  "eval": true,
+  "poses": false,
+  "eval":false,
 
   "phase": "train",
-  "class_num": 1,
-  "device": "cuda:0",
+  "class_num": 5,
+  "device": "cuda:3",
   "seed": 42,
-  "output_dir": "../output_dir_pose",
+  "output_dir": "../facebook_output_dir5_focal_sum",
   "image_width": 1225,
   "image_height": 370,
   "pixel_mean": [0.485, 0.456, 0.406], 
@@ -16,7 +16,7 @@
 
   "camera_fov": 88.8, 
   "is_show_result":true, 
-  "plot_threshold":0.6,
+  "plot_threshold":0.4,
 
   "label_map": {
     "Tram": 0,
@@ -29,7 +29,6 @@
     "vehicle": 1
   },
   "model": {
-    "model_class_num": 5,
     "model_name":["tram_001.obj", "car_001.obj", "truck_001.obj", "van_001.obj", "pedestrian_001.obj"],
     "model_num_samples": 5000
   },
@@ -70,7 +69,7 @@
      "detect_obj_show_topk": 60,
      "detect_obj_show_thresh": 0.3
   },
-  "train": {  
+  "train": {
     "start_epoch": 0,
     "end_epoch": 10000,
     "resume": "",
@@ -79,22 +78,20 @@
     "frozen_weights": null,
     "save_weights_num": 10,
 
-    "batch_size": 4,
+    "batch_size": 16,
     "num_workers": 0,
-    "lr": 2e-4,
-    "lr_backbone":2e-5,
-    "lr_drop":100,
+    "lr": 1e-4,
+    "lr_backbone":1e-5,
+    "lr_drop":500,
 
     "weight_decay":1e-4,
 
-    "focal_alpha": 0.25,
+    "focal_alpha": 0.5,
     "focal_gamma": 2,
-    "model_focal_gamma": 2,
     
     "matcher_cost_class": 1,
     "matcher_cost_bbox": 5,
     "matcher_cost_giou": 5,
-
 
     "cls_loss_weight": 1,
     "bbox2d_loss_weight": 5,
@@ -102,6 +99,7 @@
     "model3d_loss_weight":1,
     "pose6dof_loss_weight":1,
     
+
     "model3d_scales_weight": 8.0,
     "model3d_centers_weight": 4.0,
     "model3d_points_weight": 1.0,
@@ -111,8 +109,8 @@
     "model3d_laplacian_weight": 0.1,
 
     "model_6dof_class_weight":1.0,
-    "model_6dof_add_weight":1.0,
-    "model_6dof_fps_points_weight":1.0,
+    "model_6dof_add_weight":0.1,
+    "model_6dof_fps_points_weight":0.1,
 
 
     "tensorboard": true
