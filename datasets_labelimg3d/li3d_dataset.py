@@ -27,6 +27,7 @@ else:
 
 CLASSES = ['Tram', 'Car', 'Truck', "Van", "Pedestrian"]
 
+all_class_num = {0:0, 1:0, 2:0, 3:0, 4:0} 
 
 class SingleAnnotationParser:
     def __init__(self, img_path, annotation_path):
@@ -47,6 +48,8 @@ class SingleAnnotationParser:
         self.model_num = annotation_data["model"]["num"]
 
         for i in range(int(annotation_data["model"]["num"])):
+            all_class_num[annotation_data["model"][str(i)]["class"] - 1] += 1
+
             self.model_ids.append(annotation_data["model"][str(i)]["class"] - 1)
             self.class_ids.append(0)
             self.class_names.append(annotation_data["model"][str(i)]["class_name"])

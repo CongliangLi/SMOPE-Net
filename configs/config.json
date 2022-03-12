@@ -34,7 +34,7 @@
     "model_num_samples": 5000
   },
   "test": {
-    "resume": "",
+    "resume": "/mnt/data3/CongliangLi/DETR/output_dir_pose/resnet50_KITTI3D_b4_lr0.0002_nq300_gamma2_alpha0.25/checkpoints/checkpoint.pth",
     "dataset_type": "train",
     "batch_size": 1,
     "num_workers": 0,
@@ -72,8 +72,8 @@
   },
   "train": {  
     "start_epoch": 0,
-    "end_epoch": 10000,
-    "resume": "",
+    "end_epoch": 1000,
+    "resume": "/mnt/data3/CongliangLi/DETR/output_dir_pose/resnet50_KITTI3D_b4_lr0.0002_nq300_gamma2_alpha0.25/checkpoints/checkpoint.pth",
     "aux_loss": false,
 
     "frozen_weights": null,
@@ -83,7 +83,7 @@
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,
-    "lr_drop":100,
+    "lr_drop":20,
 
     "weight_decay":1e-4,
 
@@ -110,9 +110,11 @@
     "model3d_normal_weight": 0.01,
     "model3d_laplacian_weight": 0.1,
 
-    "model_6dof_class_weight":1.0,
+    "model_6dof_class_weight":3.0,
     "model_6dof_add_weight":1.0,
     "model_6dof_fps_points_weight":1.0,
+
+    "model_class_weights": [0.567, 0.008, 0.284, 0.114, 0.027],
 
 
     "tensorboard": true

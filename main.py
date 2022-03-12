@@ -142,6 +142,8 @@ def get_args_parser():
     parser.add_argument('--model_6dof_class_weight', default=cfg["model_6dof_class_weight"], type=float)
     parser.add_argument('--model_6dof_add_weight', default=cfg["model_6dof_add_weight"], type=float)
     parser.add_argument('--model_6dof_fps_points_weight', default=cfg["model_6dof_fps_points_weight"], type=float)
+
+    parser.add_argument("--model_class_weights", default=cfg["model_class_weights"], type=list)
                        
 
 
@@ -340,11 +342,11 @@ def main(args):
                 os.remove(past_checkpoint_path)
 
         # envaluate
-        # if epoch % 5 == 0:
-        #     test_stats, li3d_evaluator = evaluate(
-        #         model, criterion, postprocessors, data_loader_val, base_ds, device, 
-        #         args.output_dir, args, epoch, writer
-        #     )
+        if epoch % 5 == 0:
+            test_stats, li3d_evaluator = evaluate(
+                model, criterion, postprocessors, data_loader_val, base_ds, device, 
+                args.output_dir, args, epoch, writer
+            )
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                     #  **{f'test_{k}': v for k, v in test_stats.items()},

@@ -220,7 +220,7 @@ class SetCriterion(nn.Module):
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
 
-    def __init__(self, num_classes, matcher, weight_dict, losses, model_class_num, model_focal_gamma=2,
+    def __init__(self, num_classes, matcher, weight_dict, losses, model_class_num, model_class_weights, model_focal_gamma=2,
                  focal_alpha=0.25, focal_gamma=2):
         """ Create the criterion.
         Parameters:
@@ -237,6 +237,7 @@ class SetCriterion(nn.Module):
         self.losses = losses
         self.focal_alpha = focal_alpha
         self.focal_gamma = focal_gamma
+        self.model_class_weights = model_class_weights
 
         empty_weight = torch.ones(self.num_classes + 1)
         empty_weight[-1] = focal_alpha
@@ -497,24 +498,27 @@ class SetCriterion(nn.Module):
         src_class = src_class[src_idx]
         # 1.2 get target model class
         tgt_class_o = torch.cat([t["model_ids"][J] for t, (_, J) in zip(targets, indices)])
+        # target_classes = torch.full(src_class.shape[:2], self.model_class_num,
+        #                     dtype=torch.int64, device=src_class.device)
 
         # 1.3 get the model class loss
         # ===================== ce loss for model class ======================
-        # loss_mc = F.cross_entropy(src_class[None, :].permute(0, 2, 1), tgt_class_o[None, :])
+        loss_mc = F.cross_entropy(src_class[None, :].permute(0, 2, 1), tgt_class_o[None, :],
+                                weight=torch.Tensor(self.model_class_weights).cuda())
 
         # ===================== focal loss for model class ======================
-        pt = torch.softmax(src_class, dim=-1)
-        class_mask = F.one_hot(tgt_class_o, self.model_class_num)
+        # pt = torch.softmax(src_class, dim=-1)
+        # class_mask = F.one_hot(tgt_class_o, self.model_class_num)
 
-        # ids = tgt_class_o.view(-1, 1)
-        # weights = self.empty_weight[ids.data.view(-1)].view(-1,1)
+        # # ids = tgt_class_o.view(-1, 1)
+        # # weights = self.empty_weight[ids.data.view(-1)].view(-1,1)
 
-        probs = (pt * class_mask).sum(-1).view(-1, 1)
-        log_p = probs.log()
+        # probs = (pt * class_mask).sum(-1).view(-1, 1)
+        # log_p = probs.log()
 
-        # loss_all = -weights * (torch.pow((1 - probs), self.focal_gamma)) * log_p
-        loss_all = -(torch.pow((1 - probs), self.model_focal_gamma)) * log_p
-        loss_mc = loss_all.sum() / (tgt_class_o.shape[0] + 1e-7)
+        # # loss_all = -weights * (torch.pow((1 - probs), self.focal_gamma)) * log_p
+        # loss_all = -(torch.pow((1 - probs), self.model_focal_gamma)) * log_p
+        # loss_mc = loss_all.sum() / (tgt_class_o.shape[0] + 1e-7)
 
         losses["pose_6dof_class"] = loss_mc
 
@@ -754,7 +758,8 @@ def build(args):
 
     # num_classes, matcher, weight_dict, losses, focal_alpha=0.25
     criterion = SetCriterion(num_classes, matcher, weight_dict, losses, model_class_num=args.model_class_num,
-                             model_focal_gamma=args.model_focal_gamma, focal_alpha=args.focal_alpha,
+                            model_class_weights=args.model_class_weights,
+                            model_focal_gamma=args.model_focal_gamma, focal_alpha=args.focal_alpha,
                              focal_gamma=args.focal_gamma)
     criterion.to(device)
     postprocessors = {'bbox': PostProcess()}

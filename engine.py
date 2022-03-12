@@ -182,8 +182,6 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
 
         # print(loss_value)
 
-
-
         if board_writer is not None and i % 5 == 0:
             board_writer.add_scalar('Eval/loss', loss_value, i + epoch * data_length)
             board_writer.add_scalar('Eval/class_loss', loss_dict_reduced_scaled['loss_ce'], i + epoch * data_length)
@@ -204,11 +202,6 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
                 board_writer.add_scalar('Eval/pose_6dof_fps_points_3d_loss',
                                         loss_dict_reduced_scaled['pose_6dof_fps_points_3d'],
                                         i + epoch * data_length)
-            
-
-
-
-
 
         metric_logger.update(loss=sum(loss_dict_reduced_scaled.values()),
                              **loss_dict_reduced_scaled,
@@ -231,7 +224,6 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         if pose_result_plotor is not None and i % record_freq == 0:
             ploter_head = f'test_i{i}' if epoch is None else f'evl_e{epoch}_i{i}'
             pose_result_plotor(samples.tensors, res, targets, args, ploter_head)
-
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
