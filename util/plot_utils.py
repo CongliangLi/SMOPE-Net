@@ -17,7 +17,7 @@ from pytorch3d.utils import ico_sphere
 from pytorch3d.ops import sample_points_from_meshes
 from pytorch3d.io import load_obj, save_obj
 import json
-from util.utils import get_distance, RQuaternion_2_RMatrix, Rotate_x_axis
+from util.utils import get_distance, RQuaternion_2_RMatrix, Rotate_x_axis, Rotate_y_axis, get_R_w2c
 
 
 
@@ -120,11 +120,12 @@ class PoseResultPlotor(object):
                 
                 if this_epoch == 0 or this_epoch is None:
                     self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), tgt_bboxes_2d, tgt_model_ids, tgt_scores,
-                                        f'{self.tgt_img_save_path}/{save_name}_{num}.png')
+                                        target["orig_size"].cpu(),
+                                        f'{self.tgt_img_save_path}/{save_name}_t{target["img_path"]}.png')
                     if args.poses:
                         # save targets 6dof as annotations for labelImg3d
                         self._save_tgt_6dof_annotation(sample.permute(1, 2, 0).cpu(), tgt_pose_6dof, tgt_model_ids, 
-                                                    f'{self.tgt_annotation_save_path}/{save_name}_{num}.json')
+                                                    f'{self.tgt_annotation_save_path}/{save_name}_t{target["img_path"]}.json')
                         
                         
                 threshold = args.plot_threshold
@@ -138,30 +139,38 @@ class PoseResultPlotor(object):
                         th_pose_6dof = pred_pose_6dof[pred_mask]
 
                         # save pred images
-                        self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_model_ids, th_scores,
-                                            f'{self.pred_img_save_path}/{save_name}_{num}.png')
+                        self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_model_ids, th_scores, 
+                                            target["orig_size"].cpu(),
+                                            f'{self.pred_img_save_path}/{save_name}_t{target["img_path"]}.png')
                         # save pred 6dof as annotations for labelImg3d
-                        self._save_pred_6dof_annotation(sample, th_pose_6dof, th_model_ids, f"{self.pred_annotation_save_path}/{save_name}_{num}.json")
+                        self._save_pred_6dof_annotation(sample, th_pose_6dof, th_model_ids, f'{self.pred_annotation_save_path}/{save_name}_t{target["img_path"]}.json')
                     else:
                         # save pred images
-                        self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_classes, th_scores,
-                                            f'{self.pred_img_save_path}/{save_name}_{num}.png')
+                        self._plot_bbox2d(sample.permute(1, 2, 0).cpu(), th_bboxes_2d, th_classes, th_scores, 
+                                            target["orig_size"].cpu(),
+                                            f'{self.pred_img_save_path}/{save_name}_t{target["img_path"]}.png')
 
                 num = num + 1
         except Exception as e:
             print(e)
 
-    def _plot_bbox2d(self, image, boxes, labels, scores, save_name: str = None):
-        fig = plt.figure(figsize=(16, 10))
+    def _plot_bbox2d(self, image, boxes, labels, scores, img_size, save_name: str = None):
+        fig = plt.figure(figsize=(img_size[0]/100, img_size[1]/100))
         ax = plt.gca()
         ax.axis('off')
-        ima = np.array(image, np.int32)
+        
+        # Remove the white border around the image
+        ax.xaxis.set_major_locator(plt.NullLocator()) 
+        ax.yaxis.set_major_locator(plt.NullLocator()) 
+        plt.subplots_adjust(top=1,bottom=0,left=0,right=1,hspace=0,wspace=0) 
+        plt.margins(0,0)
+
         im = ax.imshow(image)
+
         bbox = self._draw_bbox_2d(ax, boxes, labels, scores)
 
-        ani = animation.ArtistAnimation(fig, [[im] + bbox], interval=200, blit=False)
         if save_name:
-            ani.save(save_name, writer='pillow')
+            fig.savefig(save_name, dpi=100, bbox_inches="tight", pad_inches=0.0)
         plt.close(fig)
 
     def _draw_bbox_2d(self, ax, boxes, labels, scores):
@@ -198,7 +207,7 @@ class PoseResultPlotor(object):
     def _save_pred_6dof_annotation(self, sample, pose_6dof, model_ids, json_save_path):
         save_name = json_save_path.split("/")[-1].split(".")[0]
         data = self.getEmptyJson(save_name)
-        data["model"]["num"] = len(pose_6dof)
+        data["model"]["num"] = len(model_ids)
 
         for i, pose in enumerate(pose_6dof):
             model_save_path = f"models/{KITTI_CLASSES[model_ids[i]]}.obj"
@@ -207,12 +216,11 @@ class PoseResultPlotor(object):
             model_class_id = model_ids.tolist()[i]
 
             pose = pose[model_class_id, :]
-            pose_t = [pose[0], pose[1], -pose[2] + get_distance(config["camera_fov"])]
-            pose_r = np.dot(RQuaternion_2_RMatrix(pose[3:]), Rotate_x_axis(-90)).tolist()
-            pose_r = [pose_r[0], pose_r[2], pose_r[1]]
+            pose_t = [pose[0], -pose[1], -pose[2] + get_distance(config["camera_fov"])]
+            pose_r = np.dot(np.linalg.inv(get_R_w2c()), RQuaternion_2_RMatrix(pose[3:])).tolist()
 
             matrix = np.column_stack([pose_r, pose_t])
-            matrix = np.row_stack([matrix, np.array([0, 0, 0, 1])]).tolist()
+            matrix = np.row_stack([matrix, np.array([0, 0, 0, 1])]).flatten().tolist()
 
             model = load_obj(os.path.join(self.pred_model_path, f"{KITTI_CLASSES[model_ids[i]]}.obj"))[0]
 
@@ -240,12 +248,11 @@ class PoseResultPlotor(object):
             model_class = KITTI_CLASSES[model_ids[i]]
             model_class_id = model_ids.tolist()[i]
 
-            pose_t = [pose[0], pose[1], -pose[2] + get_distance(config["camera_fov"])]
-            pose_r = np.dot(RQuaternion_2_RMatrix(pose[3:]), Rotate_x_axis(-90)).tolist()
-            pose_r = [pose_r[0], pose_r[2], pose_r[1]]
-
+            pose_t = [pose[0], -pose[1], -pose[2] + get_distance(config["camera_fov"])]
+            pose_r = np.dot(np.linalg.inv(get_R_w2c()), RQuaternion_2_RMatrix(pose[3:])).tolist()
+            
             matrix = np.column_stack([pose_r, pose_t])
-            matrix = np.row_stack([matrix, np.array([0, 0, 0, 1])]).tolist()
+            matrix = np.row_stack([matrix, np.array([0, 0, 0, 1])]).flatten().tolist()
 
             model = load_obj(os.path.join(self.pred_model_path, f"{KITTI_CLASSES[model_ids[i]]}.obj"))[0]
 

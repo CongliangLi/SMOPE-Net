@@ -316,6 +316,17 @@ def Rotate_z_axis(theta):
     return np.array([[cos(theta), -sin(theta), 0.], [sin(theta), cos(theta), 0.], [0., 0., 1.]])
 
 
+
+def get_R_w2c():
+    """
+
+    Returns: Rotation matrix for world to camera (3,3)
+
+    """
+    return np.dot(np.dot(Rotate_y_axis(180), Rotate_z_axis(-90)), np.array([[0., 1., 0.], [-1., 0., 0.], [0., 0., 1.]]))
+
+
+
 def rotation_mat_to_axis_angle(rotation_matrix):
     """
     Computes an axis angle rotation vector from a rotation matrix

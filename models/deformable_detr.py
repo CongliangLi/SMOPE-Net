@@ -522,6 +522,7 @@ class SetCriterion(nn.Module):
 
         losses["pose_6dof_class"] = loss_mc
 
+        # ===========================================
         # 2. get 6Dof loss
         # 2.1 get predict 6Dof
         src_pose = outputs["pose_6dof"]
@@ -532,6 +533,7 @@ class SetCriterion(nn.Module):
         src_6dof_t_pose = src_6dof_pose[:, :3]
         src_6dof_r_pose = src_6dof_pose[:, 3:]
 
+        # =============================================
         # 2.2 get target 6Dof pose
         tgt_6dof_t_pose_o = torch.cat([t["T_matrix_c2o"][J] for t, (_, J) in zip(targets, indices)])
         tgt_6dof_r_pose_o = torch.cat([t["R_quaternion_c2o"][J] for t, (_, J) in zip(targets, indices)])
@@ -540,13 +542,16 @@ class SetCriterion(nn.Module):
         tgt_bboxes_2d = torch.cat([t["bboxes_2d"][J] for t, (_, J) in zip(targets, indices)])
         tgt_bboxes_3d_w = torch.cat([t["bboxes_3d_w"][J] for t, (_, J) in zip(targets, indices)])
 
+        # ============================================
         # 2.3 get the model add loss
         losses["pose_6dof_add"] = nn.L1Loss()(src_6dof_t_pose, tgt_6dof_t_pose_o)
 
+        # ============================================
         # TODO: 2.4 get the model l1 loss of 3d bbox
 
         # tgt_bboxes_3d_points = [[tgt_bboxes_3d_w[i][0], tgt_bboxes_3d_w[i][-1]]for i in range(tgt_bboxes_3d_w.shape[0])]
 
+        # ============================================= 
         # 2.5 get the model l1 loss of fps points
         # 2.5.1 get the fps points in object coordinate
         fps_points = targets[0]["fps_points"]
@@ -571,6 +576,11 @@ class SetCriterion(nn.Module):
 
         # 2.5.6 calcuate the l1 loss between target fps points and src fps points
         losses["pose_6dof_fps_points_3d"] = nn.L1Loss()(src_fps_points_camera, tgt_fps_points_camera)
+
+        # ==========================================
+        #  2.6 get the l1 loss of the Rotation
+        losses["pose_6dof_rotation"] = nn.L1Loss()(src_6dof_r_pose, tgt_6dof_r_pose_o)
+
 
         # TODO: 3 get the model bboxes_2d loss
         # losses["pose_6dof_bboxes_2d"] = 0
@@ -729,7 +739,7 @@ def build(args):
     )
 
     if args.poses:
-        model = DETRpose(model, freeze_detr=(args.frozen_weights is not None))
+        model = DETRpose(model, model_fps_num=args.model_fps_num,freeze_detr=(args.frozen_weights is not None))
 
     matcher = build_matcher(args)
     weight_dict = {'loss_ce': args.cls_loss_weight,
@@ -743,6 +753,7 @@ def build(args):
         weight_dict["pose_6dof_class"] = args.model_6dof_class_weight
         weight_dict["pose_6dof_add"] = args.model_6dof_add_weight
         weight_dict["pose_6dof_fps_points_3d"] = args.model_6dof_fps_points_weight
+        weight_dict["pose_6dof_rotation"] = args.model_6dof_rotation_weight
 
     if args.aux_loss:
         aux_weight_dict = {}

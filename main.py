@@ -72,6 +72,9 @@ def get_args_parser():
     parser.add_argument('--frozen_weights', type=str, default=None,
                         help="Path to the pretrained model. If set, only the mask head will be trained")
 
+    parser.add_argument("--model_fps_num", type=int, default=config["model"]["model_fps_num"],
+                        help="model fps num")
+
     # * Backbone
     parser.add_argument('--backbone', default='resnet50', type=str,
                         help="Name of the convolutional backbone to use")
@@ -142,6 +145,7 @@ def get_args_parser():
     parser.add_argument('--model_6dof_class_weight', default=cfg["model_6dof_class_weight"], type=float)
     parser.add_argument('--model_6dof_add_weight', default=cfg["model_6dof_add_weight"], type=float)
     parser.add_argument('--model_6dof_fps_points_weight', default=cfg["model_6dof_fps_points_weight"], type=float)
+    parser.add_argument("--model_6dof_rotation_weight", default=cfg["model_6dof_rotation_weight"], type=float)
 
     parser.add_argument("--model_class_weights", default=cfg["model_class_weights"], type=list)
                        

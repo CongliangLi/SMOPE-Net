@@ -113,6 +113,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                 board_writer.add_scalar('Train/pose_6dof_fps_points_3d_loss',
                                         loss_dict_reduced_scaled['pose_6dof_fps_points_3d'],
                                         i + epoch * data_length)
+                board_writer.add_scalar('Train/pose_6dof_rotation',
+                                        loss_dict_reduced_scaled['pose_6dof_rotation'],
+                                        i + epoch * data_length)
             board_writer.add_scalar('Train/lr', optimizer.param_groups[0]["lr"], i + epoch * data_length)
 
 
@@ -201,6 +204,9 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
                                         i + epoch * data_length)
                 board_writer.add_scalar('Eval/pose_6dof_fps_points_3d_loss',
                                         loss_dict_reduced_scaled['pose_6dof_fps_points_3d'],
+                                        i + epoch * data_length)
+                board_writer.add_scalar('Eval/pose_6dof_rotation', 
+                                        loss_dict_reduced_scaled['pose_6dof_rotation'],
                                         i + epoch * data_length)
 
         metric_logger.update(loss=sum(loss_dict_reduced_scaled.values()),

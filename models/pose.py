@@ -113,7 +113,7 @@ class PoseHeadSmallLinear(nn.Module):
 
 
 class DETRpose(nn.Module):
-    def __init__(self, detr, freeze_detr=False):
+    def __init__(self, detr, model_fps_num=8, freeze_detr=False):
         super().__init__()
         self.detr = detr
 
@@ -123,7 +123,7 @@ class DETRpose(nn.Module):
 
         hidden_dim, nheads = detr.transformer.d_model, detr.transformer.nhead
 
-        self.model_3d_net = Model3DNet()
+        self.model_3d_net = Model3DNet(fps_num=model_fps_num)
 
         self.bbox_attention = MHAttentionMap(hidden_dim, hidden_dim, nheads, dropout=0.0)
 

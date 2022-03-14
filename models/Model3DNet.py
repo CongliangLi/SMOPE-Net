@@ -25,6 +25,7 @@ class Model3DNet(nn.Module):
                  num_samples=6000,
                  num_hidden_feat=256,
                  num_ico_vert=2562,
+                 fps_num=8,
                  device=config["device"]):
         super().__init__()
 
@@ -35,6 +36,7 @@ class Model3DNet(nn.Module):
         # load the 3d model
         self.model_path_list = model_path_list
         self.device = device
+        self.fps_num = fps_num
         self.meshes, self.scale_list, self.center_list, self.fps_list = self.load_models()
         self.scale_list = torch.stack(self.scale_list)[:, None]
         self.center_list = torch.stack(self.center_list)
@@ -127,7 +129,7 @@ class Model3DNet(nn.Module):
         return x.reshape(B, -1, 3), scales, centers
 
     @staticmethod
-    def load_one_model(model_path, device=None):
+    def load_one_model(model_path, fps_num=8, device=None):
         verts, faces, aux = load_obj(model_path)
 
         if device is not None:
@@ -136,7 +138,7 @@ class Model3DNet(nn.Module):
 
         center = verts.mean(0)
 
-        fps_points = Model3DNet.get_fps_points(verts, center)
+        fps_points = Model3DNet.get_fps_points(verts, center, fps_num=fps_num)
         verts = verts - center
         scale = max(verts.abs().max(0)[0])
         verts = verts / scale
@@ -164,7 +166,7 @@ class Model3DNet(nn.Module):
         return fps_3d_points
 
     def load_models(self):
-        verts_faces_list = [Model3DNet.load_one_model(p, self.device) for p in self.model_path_list]
+        verts_faces_list = [Model3DNet.load_one_model(p, self.fps_num, self.device) for p in self.model_path_list]
         verts_list = [vf[0] for vf in verts_faces_list]
         faces_list = [vf[1] for vf in verts_faces_list]
         scale_list = [vf[2] for vf in verts_faces_list]

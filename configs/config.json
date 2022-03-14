@@ -14,7 +14,7 @@
   "pixel_mean": [0.485, 0.456, 0.406], 
   "pixel_std": [0.229, 0.224, 0.225],
 
-  "camera_fov": 88.8, 
+  "camera_fov": 88, 
   "is_show_result":true, 
   "plot_threshold":0.6,
 
@@ -31,7 +31,8 @@
   "model": {
     "model_class_num": 5,
     "model_name":["tram_001.obj", "car_001.obj", "truck_001.obj", "van_001.obj", "pedestrian_001.obj"],
-    "model_num_samples": 5000
+    "model_num_samples": 5000,
+    "model_fps_num": 300
   },
   "test": {
     "resume": "/mnt/data3/CongliangLi/DETR/output_dir_pose/resnet50_KITTI3D_b4_lr0.0002_nq300_gamma2_alpha0.25/checkpoints/checkpoint.pth",
@@ -73,7 +74,7 @@
   "train": {  
     "start_epoch": 0,
     "end_epoch": 1000,
-    "resume": "/mnt/data3/CongliangLi/DETR/output_dir_pose/resnet50_KITTI3D_b4_lr0.0002_nq300_gamma2_alpha0.25/checkpoints/checkpoint.pth",
+    "resume": "",
     "aux_loss": false,
 
     "frozen_weights": null,
@@ -83,7 +84,7 @@
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,
-    "lr_drop":20,
+    "lr_drop":40,
 
     "weight_decay":1e-4,
 
@@ -110,9 +111,10 @@
     "model3d_normal_weight": 0.01,
     "model3d_laplacian_weight": 0.1,
 
-    "model_6dof_class_weight":3.0,
-    "model_6dof_add_weight":1.0,
-    "model_6dof_fps_points_weight":1.0,
+    "model_6dof_class_weight": 3.0,
+    "model_6dof_add_weight": 1.0,
+    "model_6dof_fps_points_weight": 1.0,
+    "model_6dof_rotation_weight": 3.0,
 
     "model_class_weights": [0.567, 0.008, 0.284, 0.114, 0.027],
 
