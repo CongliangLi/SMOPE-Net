@@ -178,7 +178,7 @@ class Model3DNet(nn.Module):
     def get_loss(self, deform_verts_list,
                  pre_scales,
                  pre_centers,
-                 num_samples=10000,
+                 num_samples=2000,
                  w_scales=10.0,
                  w_centers=10.0,
                  w_chamfer=1.0,  # Weight for the chamfer loss
