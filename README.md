@@ -16,12 +16,7 @@ This repository is an official implementation of the paper [Deformable DETR: Def
 **Abstract.** DETR has been recently proposed to eliminate the need for many hand-designed components in object detection while demonstrating good performance. However, it suffers from slow convergence and limited feature spatial resolution, due to the limitation of Transformer attention modules in processing image feature maps. To mitigate these issues, we proposed Deformable DETR, whose attention modules only attend to a small set of key sampling points around a reference. Deformable DETR can achieve better performance than DETR (especially on small objects) with 10× less training epochs. Extensive experiments on the COCO benchmark demonstrate the effectiveness of our approach.
 
 ## License
-
-This project is released under the [Apache 2.0 license](./LICENSE).
-
-## Changelog
-
-See [changelog.md](./docs/changelog.md) for detailed logs of major changes. 
+The methods provided on this page are published under the [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License](http://creativecommons.org/licenses/by-nc-sa/3.0/) . This means that you must attribute the work in the manner specified by the authors, you may not use this work for commercial purposes and if you alter, transform, or build upon this work, you may distribute the resulting work only under the same license. If you are interested in commercial usage you can contact us for further options.
 
 
 ## Citing Deformable DETR
@@ -67,24 +62,42 @@ If you find Deformable DETR useful in your research, please consider citing:
 
 * Linux, CUDA>=9.2, GCC>=5.4
   
-* Python>=3.7
+* Python
 
     We recommend you to use Anaconda to create a conda environment:
     ```bash
-    conda create -n deformable_detr python=3.7 pip
+    conda create -n detr_6dof python=3.8
     ```
     Then, activate the environment:
     ```bash
-    conda activate deformable_detr
+    conda activate detr_6dof
     ```
   
-* PyTorch>=1.5.1, torchvision>=0.6.1 (following instructions [here](https://pytorch.org/))
+* PyTorch (following instructions [here](https://pytorch.org/))
 
-    For example, if your CUDA version is 9.2, you could install pytorch and torchvision as following:
     ```bash
-    conda install pytorch=1.5.1 torchvision=0.6.1 cudatoolkit=9.2 -c pytorch
+    conda install -c pytorch pytorch=1.9.1 torchvision cudatoolkit=10.2
     ```
-  
+
+* PyTorch3D
+
+    - Using Anaconda Cloud,on Linux only
+
+    ```bash
+    conda install pytorch3d -c pytorch3d
+    ```
+
+    - Install from PyPI, on Mac only.
+
+    ```bash
+    conda install pytorch3d -c pytorch3d
+    ``` 
+
+    - Installing From Source（Install from GitHub）.
+
+    ```bash
+    pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+    ``` 
 * Other requirements
     ```bash
     pip install -r requirements.txt
