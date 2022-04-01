@@ -1,6 +1,6 @@
 {
-  "dataset_name": "KITTI3D",
-  "dataset_path": "../data/KITTI3D",
+  "dataset_name": "Linemod_preprocessed",
+  "dataset_path": "../data/Linemod_preprocessed/data/02",
   "poses": true,
   "eval": false,
 
@@ -8,31 +8,36 @@
   "class_num": 1,
   "device": "cuda:0",
   "seed": 42,
-  "output_dir": "../output_dir_pose",
-  "image_width": 1225,
-  "image_height": 370,
+  "output_dir": "../output_dir_pose_linemod",
+  "image_width": 640,
+  "image_height": 480,
   "pixel_mean": [0.485, 0.456, 0.406], 
   "pixel_std": [0.229, 0.224, 0.225],
 
-  "camera_fov": 88, 
+  "camera_fov": 58.44, 
   "is_show_result":true, 
   "plot_threshold":0.3,
 
   "label_map": {
-    "Tram": 0,
-    "Car": 1,
-    "Truck": 2,
-    "Van": 3,
-    "Pedestrian": 4
+    "ape": 0,
+    "benchvisnblue":1,
+    "can": 2,
+    "cat": 3,
+    "driller": 4,
+    "duck": 5,
+    "eggbox": 6,
+    "glue": 7,
+    "holepuncher": 8
   },
   "replace_map": {
     "vehicle": 1
   },
   "model": {
-    "model_class_num": 5,
-    "model_name":["tram_001.obj", "car_001.obj", "truck_001.obj", "van_001.obj", "pedestrian_001.obj"],
-    "classes": ["Tram", "Car", "Truck", "Van", "Pedestrian"],
-    "model_id_map":{"1":0, "2":1, "3":2, "4":3, "5":4 },
+    "model_class_num": 9,
+    "model_name":["ape_01.obj", "benchvisnblue_02.obj", "can_05.obj", "cat_06.obj", "driller_08.obj", 
+                  "duck_09.obj", "eggbox_10.obj", "glue_11.obj", "holepuncher_12.obj"],
+    "classes":["ape", "benchvisnblue", "can", "cat", "driller", "duck", "eggbox", "glue", "holepuncher"],
+    "model_id_map":{"1":0, "2":1, "5":2, "6":3, "8":4, "9":5, "10":6, "11":7, "12":8},
     "model_num_samples": 5000,
     "model_fps_num": 8
   },
@@ -75,14 +80,14 @@
   },
   "train": {  
     "start_epoch": 0,
-    "end_epoch": 1000,
+    "end_epoch": 200,
     "resume": "",
     "aux_loss": false,
 
     "frozen_weights": null,
     "save_weights_num": 10,
 
-    "batch_size": 2,
+    "batch_size": 4,
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,
@@ -105,20 +110,20 @@
     "model3d_loss_weight":1,
     "pose6dof_loss_weight":1,
     
-    "model3d_scales_weight": 8.0,
+    "model3d_scales_weight": 1.0,
     "model3d_centers_weight": 4.0,
-    "model3d_points_weight": 100.0,
+    "model3d_points_weight": 10.0,
     "model3d_chamfer_weight": 1.0,
     "model3d_edge_weight": 1.0,
     "model3d_normal_weight": 0.01,
     "model3d_laplacian_weight": 0.1,
 
     "model_6dof_class_weight": 0.5,
-    "model_6dof_add_weight": 3.0,
-    "model_6dof_fps_points_weight": 1.0,
+    "model_6dof_add_weight": 0.01,
+    "model_6dof_fps_points_weight": 0.01,
     "model_6dof_rotation_weight": 3.0,
 
-    "model_class_weights": [0.567, 0.008, 0.284, 0.114, 0.027],
+    "model_class_weights": [0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.111, 0.112, 0.111],
 
 
     "tensorboard": true

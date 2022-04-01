@@ -10,12 +10,14 @@ import json
 import torchvision
 # from datasets.transforms import resize
 from util.utils import get_camera_intrinsics, RMatrix_2_RQuaternion, RQuaternion_2_RMatrix, RMatrix_2_REuler, \
-    REuler_2_RMatrix, get_all_path
+    REuler_2_RMatrix, get_all_path, parse_yaml
 from PIL import Image
 import datasets_labelimg3d.transforms as T
 from pytorch3d.io import load_obj, save_obj
 from torchvision import transforms
 from configs import cfg, config
+from util.box_ops import box_cxcywh_to_xyxy
+
 
 # Set the device
 if torch.cuda.is_available():
@@ -27,42 +29,36 @@ else:
 
 CLASSES = config["model"]["classes"]
 
-all_class_num = {0:0, 1:0, 2:0, 3:0, 4:0} 
 
-class SingleAnnotationParser:
-    def __init__(self, img_path, annotation_path):
-        annotation_data = json.loads(pd.read_json(annotation_path, orient="records").to_json())
-        # with open(annotation_path, 'r+') as load_f:
-        #     annotation_data = json.load(load_f)
-
+class SingleImgParser:
+    def __init__(self, img_path, annotation_data):
+        
         self.img_path = img_path
-        self.orig_size = Image.open(img_path).size
-        self.camera_matrix = get_camera_intrinsics(annotation_data["camera"]["fov"], self.orig_size)
-        self.model_ids, self.class_names, self.bboxes_2d, self.bboxes_3d = [], [], [], []
+        self.img_num = int(img_path.split("/")[-1].split(".")[0])
+        self.anno_data = annotation_data[self.img_num]
 
-        self.bboxes_3d_w = []
+        self.orig_size = Image.open(img_path).size
+        self.camera_matrix = get_camera_intrinsics(config["camera_fov"], self.orig_size)
+        self.model_ids, self.class_names, self.bboxes_2d = [], [], []
 
         self.R_matrix_c2o, self.R_quaternion_c2o, self.R_euler_c2o = [], [], []
         self.T_matrix_c2o = []
         self.class_ids = []
-        self.model_num = annotation_data["model"]["num"]
+        self.model_num = len(self.anno_data)
 
-        for i in range(int(annotation_data["model"]["num"])):
-            all_class_num[annotation_data["model"][str(i)]["class"] - 1] += 1
-
-            self.model_ids.append(annotation_data["model"][str(i)]["class"] - 1)
+        for anno in self.anno_data:
+            model_id = config["model"]["model_id_map"][str(anno["obj_id"])]
+            self.model_ids.append(model_id)
             self.class_ids.append(0)
-            self.class_names.append(annotation_data["model"][str(i)]["class_name"])
-            self.bboxes_2d.append(annotation_data["model"][str(i)]["2d_bbox"])
-            self.bboxes_3d.append(annotation_data["model"][str(i)]["3d_bbox"])
-            self.bboxes_3d_w.append(annotation_data["model"][str(i)]["3d_bbox_w"])
-            self.T_matrix_c2o.append(annotation_data["model"][str(i)]["T_matrix_c2o"])
+            self.class_names.append(config["model"]["classes"][model_id])
+            self.bboxes_2d.append(box_cxcywh_to_xyxy(torch.tensor(anno["obj_bb"])).tolist())  # (l, t, r, b)
+            self.T_matrix_c2o.append(anno["cam_t_m2c"])
 
-            self.R_matrix_c2o.append(annotation_data["model"][str(i)]["R_matrix_c2o"])
+            self.R_matrix_c2o.append(anno["cam_R_m2c"])
             self.R_quaternion_c2o.append(RMatrix_2_RQuaternion(
-                np.array(annotation_data["model"][str(i)]["R_matrix_c2o"]).reshape(3, 3)).tolist())
+                np.array(anno["cam_R_m2c"]).reshape(3, 3)).tolist())
             self.R_euler_c2o.append(
-                RMatrix_2_REuler(np.array(annotation_data["model"][str(i)]["R_matrix_c2o"]).reshape(3, 3)).tolist())
+                RMatrix_2_REuler(np.array(anno["cam_R_m2c"]).reshape(3, 3)).tolist())
 
     def __getitem__(self):
         img = Image.open(self.img_path)
@@ -73,8 +69,6 @@ class SingleAnnotationParser:
         targets = {
             'bboxes_2d': torch.cat([(boxes[:, :2] + boxes[:, 2:]) / 2, boxes[:, 2:] - boxes[:, :2]], dim=1) if len(
                 boxes) != 0 else torch.empty(0, 4),  # convert to cxcywh
-            "bboxes_3d": torch.tensor(self.bboxes_3d) if len(boxes) != 0 else torch.empty(0, 8, 2),
-            "bboxes_3d_w": torch.tensor(self.bboxes_3d_w) if len(boxes) != 0 else torch.empty(0, 8, 3),
             "model_ids": torch.tensor(self.model_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
             "labels": torch.tensor(self.class_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o) if len(boxes) != 0 else torch.empty(0, 3),
@@ -106,9 +100,11 @@ class Li3dDataset(Dataset):
     the datasets Annotated using LabelImg3d
     """
 
-    def __init__(self, img_folder, anno_folder, transform=None):
+    def __init__(self, img_folder, anno_path, choose_data,transform=None):
+        self.anno_data = parse_yaml(anno_path)
+
         self.img_folder = img_folder
-        self.anno_folder = anno_folder
+        self.img_path = [p[:4]+".png" for p in open(choose_data).readlines()]
         self.transform = transform
 
         self.data = []
@@ -118,14 +114,15 @@ class Li3dDataset(Dataset):
 
     def load_data(self):
         # analysis files in DETRAC-Train-Annotations-MOT
-        assert self.img_folder and self.anno_folder is not None
-        all_img_path = get_all_path(self.img_folder)
+        assert self.img_folder and self.anno_data and self.img_path is not None
+        
+        all_img_path = [os.path.join(self.img_folder, p) for p in self.img_path]
         pbar = tqdm(all_img_path)
+        self.lens = len(pbar)
         for path in pbar:
             pbar.set_description(f'reading: {path}')
-            an_path = os.path.join(self.anno_folder, path.split("/")[-1].split(".")[0] + ".json")
-            self.data = self.data + [SingleAnnotationParser(path, an_path).__getitem__()]
-            self.lens = self.lens + 1
+            self.data = self.data + [SingleImgParser(path, self.anno_data).__getitem__()]
+
 
     def __len__(self):
         return self.lens
@@ -154,22 +151,13 @@ def make_transforms(image_set):
 
     if image_set == 'train':
         return T.Compose([
-            # T.RandomHorizontalFlip(),
-            T.RandomSelect(
-                T.RandomResize(scales, max_size=1333),
-                T.Compose([
-                    T.RandomResize([400, 500, 600]),
-                    # T.RandomSizeCrop(384, 600),
-                    T.RandomResize(scales, max_size=1333),
-                ])
-            ),
+            T.RandomResize([config["image_height"]], max_size=config["image_width"]),
             normalize,
         ])
 
     if image_set == 'val':
         return T.Compose([
-            # T.RandomResize([config["image_height"]]),
-            T.RandomResize(scales, max_size=1333),
+            T.RandomResize([config["image_height"]], max_size=config["image_width"]),
             normalize,
         ])
 
@@ -177,16 +165,17 @@ def make_transforms(image_set):
 
 
 def build(image_set, args):
-    root = Path(args.dataset_path) / image_set
+    root = Path(args.dataset_path)
     assert root.exists(), f'provided labelImg3d scene folder path {root} does not exist'
     PATHS = {
-        "train": (root / "images", root / "annotations"),
-        "val": (root / "images", root / "annotations")
+        "train": (root / "rgb", root / "gt.yml", root / "train.txt"),
+        "val": (root / "rgb", root / "gt.yml", root / "test.txt")
     }
 
-    img_folder, ann_folder = PATHS[image_set]
+    img_folder, ann_path, choose_data = PATHS[image_set]
     dataset = Li3dDataset(img_folder=img_folder,
-                          anno_folder=ann_folder,
+                          anno_path=ann_path,
+                          choose_data = choose_data,
                           transform=make_transforms(image_set)
                           )
     return dataset

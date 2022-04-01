@@ -25,10 +25,14 @@ if cfg["resume"] != "":
     cfg["resume"] = abs_join_path(ROOT_DIR, cfg["resume"])
 else:
     cfg["resume"] = None
-    
-cfg["model_folder"] = os.path.join(config["dataset_path"], "model_{}".format(config["dataset_path"].split("/")[-1]))
+
+if config["dataset_name"] == "KITTI3D":  
+    cfg["model_folder"] = os.path.join(config["dataset_path"], "model_{}".format(config["dataset_path"].split("/")[-1]))
+elif config["dataset_name"] == "Linemod_preprocessed":
+    cfg["model_folder"] = os.path.join(config["dataset_path"], "models")
 
 cfg["model_path"] = [os.path.join(cfg["model_folder"], i)for i in config["model"]["model_name"]]
+
 
 print('loading configure: ' + configure_name)
 print("========")

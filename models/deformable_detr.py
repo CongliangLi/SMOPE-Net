@@ -540,7 +540,7 @@ class SetCriterion(nn.Module):
         tgt_6dof_pose_o = torch.cat((tgt_6dof_t_pose_o, tgt_6dof_r_pose_o), dim=1)
 
         tgt_bboxes_2d = torch.cat([t["bboxes_2d"][J] for t, (_, J) in zip(targets, indices)])
-        tgt_bboxes_3d_w = torch.cat([t["bboxes_3d_w"][J] for t, (_, J) in zip(targets, indices)])
+        # tgt_bboxes_3d_w = torch.cat([t["bboxes_3d_w"][J] for t, (_, J) in zip(targets, indices)])
 
         # ============================================
         # 2.3 get the model add loss

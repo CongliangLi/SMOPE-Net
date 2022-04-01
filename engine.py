@@ -157,6 +157,9 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     if args.is_show_result:
         pose_result_plotor = PoseResultPlotor(args.result_path)
 
+    translation_error = []
+    rotation_error = []
+
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, record_freq, header)):
         bs = samples.tensors.shape[0]
         samples = samples.to(device)
@@ -231,6 +234,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             ploter_head = f'test_i{i}' if epoch is None else f'evl_e{epoch}_i{i}'
             pose_result_plotor(samples.tensors, res, targets, args, ploter_head)
 
+    pose_result_plotor.summarize()
+    
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

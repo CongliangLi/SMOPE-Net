@@ -216,7 +216,7 @@ def main(args):
     data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers,
                                    pin_memory=True)
-    data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
+    data_loader_val = DataLoader(dataset_val, config["test"]["batch_size"], sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers,
                                  pin_memory=True)
 
@@ -282,24 +282,24 @@ def main(args):
             print('Unexpected Keys: {}'.format(unexpected_keys))
             
         # load optimizer
-        # if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
-        #     import copy
-        #     p_groups = copy.deepcopy(optimizer.param_groups)
-        #     optimizer.load_state_dict(checkpoint['optimizer'])
-        #     for pg, pg_old in zip(optimizer.param_groups, p_groups):
-        #         pg['lr'] = pg_old['lr']
-        #         pg['initial_lr'] = pg_old['initial_lr']
-        #     print(optimizer.param_groups)
-        #     lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+            import copy
+            p_groups = copy.deepcopy(optimizer.param_groups)
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            for pg, pg_old in zip(optimizer.param_groups, p_groups):
+                pg['lr'] = pg_old['lr']
+                pg['initial_lr'] = pg_old['initial_lr']
+            print(optimizer.param_groups)
+            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         
-        #     # todo: this is a hack for doing experiment that resume from checkpoint and also modify lr scheduler (e.g., decrease lr in advance).
-        #     args.override_resumed_lr_drop = True
-        #     if args.override_resumed_lr_drop:
-        #         print('Warning: (hack) args.override_resumed_lr_drop is set to True, so args.lr_drop would override lr_drop in resumed lr_scheduler.')
-        #         lr_scheduler.step_size = args.lr_drop
-        #         lr_scheduler.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
-        #     lr_scheduler.step(lr_scheduler.last_epoch)
-        #     args.start_epoch = checkpoint['epoch'] + 1
+            # todo: this is a hack for doing experiment that resume from checkpoint and also modify lr scheduler (e.g., decrease lr in advance).
+            args.override_resumed_lr_drop = True
+            if args.override_resumed_lr_drop:
+                print('Warning: (hack) args.override_resumed_lr_drop is set to True, so args.lr_drop would override lr_drop in resumed lr_scheduler.')
+                lr_scheduler.step_size = args.lr_drop
+                lr_scheduler.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
+            lr_scheduler.step(lr_scheduler.last_epoch)
+            args.start_epoch = checkpoint['epoch'] + 1
         
         # check the resumed model
         # if not args.eval:
@@ -323,6 +323,8 @@ def main(args):
 
     print("Start training")
     start_time = time.time()
+
+    last_loss = 100.0
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler_train.set_epoch(epoch)
@@ -334,6 +336,14 @@ def main(args):
         lr_scheduler.step()
         if args.output_dir:
             checkpoint_paths = [Path(args.checkpoint_paths)/'checkpoint.pth']
+            if epoch == 0:
+                checkpoint_paths.append(Path(args.checkpoint_paths)/'best_checkpoint.pth')
+                last_loss = train_stats["loss"]
+            else:
+                if train_stats["loss"] < last_loss:
+                    checkpoint_paths.append(Path(args.checkpoint_paths)/'best_checkpoint.pth')
+
+
             # extra checkpoint before LR drop and every 5 epochs
             if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % 5 == 0:
                 checkpoint_paths.append(Path(args.checkpoint_paths) / f'checkpoint{epoch:04}.pth')
