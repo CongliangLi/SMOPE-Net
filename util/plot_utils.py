@@ -210,8 +210,7 @@ class PoseResultPlotor(object):
 
     def giou_match(self, pred_bbox, tgt_bbox, bs = 1):
         # Compute the giou cost betwen boxes
-        cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(pred_bbox),
-                                            box_cxcywh_to_xyxy(tgt_bbox))
+        cost_giou = -generalized_box_iou(pred_bbox, tgt_bbox)
         index = linear_sum_assignment(cost_giou)
         return index
 

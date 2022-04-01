@@ -3,7 +3,7 @@ from .configure import Config
 import os
 import time
 
-configure_name = 'config.json'
+configure_name = 'config_linemod.json'
 
 config = Config.get_configure(configure_name)
 
