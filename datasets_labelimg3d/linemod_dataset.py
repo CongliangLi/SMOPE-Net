@@ -51,7 +51,7 @@ class SingleImgParser:
             self.model_ids.append(model_id)
             self.class_ids.append(0)
             self.class_names.append(config["model"]["classes"][model_id])
-            self.bboxes_2d.append(box_cxcywh_to_xyxy(torch.tensor(anno["obj_bb"])).tolist())  # (l, t, r, b)
+            self.bboxes_2d.append(anno["obj_bb"])  # (l, t, w, h)
             self.T_matrix_c2o.append(anno["cam_t_m2c"])
 
             self.R_matrix_c2o.append(anno["cam_R_m2c"])
@@ -66,9 +66,8 @@ class SingleImgParser:
         if len(boxes) == 0:
             print(self.img_path)
 
-        targets = {
-            'bboxes_2d': torch.cat([(boxes[:, :2] + boxes[:, 2:]) / 2, boxes[:, 2:] - boxes[:, :2]], dim=1) if len(
-                boxes) != 0 else torch.empty(0, 4),  # convert to cxcywh
+        targets = {  
+            'bboxes_2d': torch.cat([boxes[:, :2] + boxes[:,2:] / 2, boxes[:,2:]], dim=-1) if len(boxes) != 0 else torch.empty(0, 4),  # convert (l,t,w,h) to (cxcywh)
             "model_ids": torch.tensor(self.model_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
             "labels": torch.tensor(self.class_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
             "T_matrix_c2o": torch.tensor(self.T_matrix_c2o) if len(boxes) != 0 else torch.empty(0, 3),
