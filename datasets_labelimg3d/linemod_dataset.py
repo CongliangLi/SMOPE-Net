@@ -70,7 +70,7 @@ class SingleImgParser:
             'bboxes_2d': torch.cat([boxes[:, :2] + boxes[:,2:] / 2, boxes[:,2:]], dim=-1) if len(boxes) != 0 else torch.empty(0, 4),  # convert (l,t,w,h) to (cxcywh)
             "model_ids": torch.tensor(self.model_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
             "labels": torch.tensor(self.class_ids).long() if len(boxes) != 0 else torch.empty(0).long(),
-            "T_matrix_c2o": torch.tensor(self.T_matrix_c2o) if len(boxes) != 0 else torch.empty(0, 3),
+            "T_matrix_c2o": torch.tensor(self.T_matrix_c2o)/1000 if len(boxes) != 0 else torch.empty(0, 3),
             "R_quaternion_c2o": torch.tensor(self.R_quaternion_c2o) if len(boxes) != 0 else torch.empty(0, 4),
             "R_euler_c2o": torch.tensor(self.R_euler_c2o) if len(boxes) != 0 else torch.empty(0, 3),
             'orig_size': torch.tensor(self.orig_size),

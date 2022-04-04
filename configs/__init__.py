@@ -2,6 +2,7 @@ from pprint import pprint
 from .configure import Config
 import os
 import time
+from util.utils import parse_yaml
 
 configure_name = 'config_linemod.json'
 
@@ -30,6 +31,8 @@ if config["dataset_name"] == "KITTI3D":
     cfg["model_folder"] = os.path.join(config["dataset_path"], "model_{}".format(config["dataset_path"].split("/")[-1]))
 elif config["dataset_name"] == "Linemod_preprocessed":
     cfg["model_folder"] = os.path.join(config["dataset_path"], "models")
+    model_data = parse_yaml(os.path.join(cfg["model_folder"], "models_info.yml"))
+    config["model"]["diameter"] = [model_data[c]["diameter"]/1000 for c in config["model"]["classes"]]
 
 cfg["model_path"] = [os.path.join(cfg["model_folder"], i)for i in config["model"]["model_name"]]
 

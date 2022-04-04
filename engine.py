@@ -234,7 +234,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             ploter_head = f'test_i{i}' if epoch is None else f'evl_e{epoch}_i{i}'
             pose_result_plotor(samples.tensors, res, targets, args, ploter_head)
 
-    pose_result_plotor.summarize()
+    pose_result_plotor.summarize(args.dataset_name)
     
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

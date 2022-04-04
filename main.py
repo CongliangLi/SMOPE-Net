@@ -260,7 +260,7 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    if args.dataset_name == "KITTI3D" or "UA-DETRAC3D":
+    if args.dataset_name == "KITTI3D" or "UA-DETRAC3D" or "Linemod_preprocessed":
         base_ds = get_orig_data_from_dataset(dataset_val)
 
     if args.frozen_weights is not None:
@@ -282,24 +282,24 @@ def main(args):
             print('Unexpected Keys: {}'.format(unexpected_keys))
             
         # load optimizer
-        if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
-            import copy
-            p_groups = copy.deepcopy(optimizer.param_groups)
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            for pg, pg_old in zip(optimizer.param_groups, p_groups):
-                pg['lr'] = pg_old['lr']
-                pg['initial_lr'] = pg_old['initial_lr']
-            print(optimizer.param_groups)
-            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        # if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+        #     import copy
+        #     p_groups = copy.deepcopy(optimizer.param_groups)
+        #     optimizer.load_state_dict(checkpoint['optimizer'])
+        #     for pg, pg_old in zip(optimizer.param_groups, p_groups):
+        #         pg['lr'] = pg_old['lr']
+        #         pg['initial_lr'] = pg_old['initial_lr']
+        #     print(optimizer.param_groups)
+        #     lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         
-            # todo: this is a hack for doing experiment that resume from checkpoint and also modify lr scheduler (e.g., decrease lr in advance).
-            args.override_resumed_lr_drop = True
-            if args.override_resumed_lr_drop:
-                print('Warning: (hack) args.override_resumed_lr_drop is set to True, so args.lr_drop would override lr_drop in resumed lr_scheduler.')
-                lr_scheduler.step_size = args.lr_drop
-                lr_scheduler.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
-            lr_scheduler.step(lr_scheduler.last_epoch)
-            args.start_epoch = checkpoint['epoch'] + 1
+        #     # todo: this is a hack for doing experiment that resume from checkpoint and also modify lr scheduler (e.g., decrease lr in advance).
+        #     args.override_resumed_lr_drop = True
+        #     if args.override_resumed_lr_drop:
+        #         print('Warning: (hack) args.override_resumed_lr_drop is set to True, so args.lr_drop would override lr_drop in resumed lr_scheduler.')
+        #         lr_scheduler.step_size = args.lr_drop
+        #         lr_scheduler.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
+        #     lr_scheduler.step(lr_scheduler.last_epoch)
+        #     args.start_epoch = checkpoint['epoch'] + 1
         
         # check the resumed model
         # if not args.eval:
@@ -341,6 +341,7 @@ def main(args):
                 last_loss = train_stats["loss"]
             else:
                 if train_stats["loss"] < last_loss:
+                    last_loss = train_stats["loss"]
                     checkpoint_paths.append(Path(args.checkpoint_paths)/'best_checkpoint.pth')
 
 

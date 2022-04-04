@@ -73,10 +73,9 @@ class PoseResultPlotor(object):
             self.rotation_y_error = {0:[],1:[],2:[],3:[],4:[]}
             self.rotation_z_error = {0:[],1:[],2:[],3:[],4:[]}
         elif config["dataset_name"] == "Linemod_preprocessed":
-            self.translation_error = {0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 7:[], 8:[]}
-            self.rotation_x_error = {0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 7:[], 8:[]}
-            self.rotation_y_error = {0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 7:[], 8:[]}
-            self.rotation_z_error = {0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 7:[], 8:[]}
+            self.add = {0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[], 7:[], 8:[]}
+
+
     def __call__(self, samples, predictions, targets, args, save_name: str = None):
         """Plot predictions
 
@@ -104,6 +103,7 @@ class PoseResultPlotor(object):
             tgt_labels = target["labels"]
             tgt_bboxes_2d = box_cxcywh_to_xyxy(target['bboxes_2d']).cpu() * torch.Tensor([w, h, w, h])
             tgt_orig_size = target["orig_size"]
+            tgt_verts_list = target["model_points"].verts_list()
 
             if args.poses:
                 # tgt_bboxes_3d_w = target["bboxes_3d_w"]
@@ -161,7 +161,10 @@ class PoseResultPlotor(object):
 
                     # Estimate
                     th_indexes, tgt_indexes = self.giou_match(th_bboxes_2d, tgt_bboxes_2d)
-                    self.estimate(th_indexes, th_pose_6dof, th_model_ids, tgt_indexes, tgt_pose_6dof, tgt_model_ids.cpu())
+                    if args.dataset_name == "Linemod_preprocessed":
+                        self.estimate_add_s(th_indexes, th_pose_6dof, th_model_ids, tgt_indexes, tgt_pose_6dof, tgt_model_ids.cpu(), tgt_verts_list, config["model"]["diameter"])
+                    else:
+                        self.estimate(th_indexes, th_pose_6dof, th_model_ids, tgt_indexes, tgt_pose_6dof, tgt_model_ids.cpu())
                 
                 else:
                     # save pred images
@@ -173,19 +176,27 @@ class PoseResultPlotor(object):
         # except Exception as e:
         #     print(e)
 
-    def summarize(self):
-        for (i, c) in enumerate(CLASSES):
-            t_error = np.array(self.translation_error[i]).mean()
+    def summarize(self, dataset_name):
+        if dataset_name == "Linemod_preprocessed":
+            for (i, c) in enumerate(CLASSES):
+                add = np.array(self.add[i]).mean()
+                print("===========================")
+                print("class:{}".format(c))
+                print("add:{}".format(add))
 
-            r_x_error = np.array(self.rotation_x_error[i]).mean()
-            r_y_error = np.array(self.rotation_y_error[i]).mean()
-            r_z_error = np.array(self.rotation_z_error[i]).mean()
-            print("===========================")
-            print("class:{}".format(c))
-            print("Translation Error:{}".format(t_error))
-            print("Rotation X Error:{}".format(r_x_error))
-            print("Rotation Y Error:{}".format(r_y_error))
-            print("Rotation Z Error:{}".format(r_z_error))
+        else:
+            for (i, c) in enumerate(CLASSES):
+                t_error = np.array(self.translation_error[i]).mean()
+
+                r_x_error = np.array(self.rotation_x_error[i]).mean()
+                r_y_error = np.array(self.rotation_y_error[i]).mean()
+                r_z_error = np.array(self.rotation_z_error[i]).mean()
+                print("===========================")
+                print("class:{}".format(c))
+                print("Translation Error:{}".format(t_error))
+                print("Rotation X Error:{}".format(r_x_error))
+                print("Rotation Y Error:{}".format(r_y_error))
+                print("Rotation Z Error:{}".format(r_z_error))
         
         
 
@@ -207,6 +218,35 @@ class PoseResultPlotor(object):
             self.rotation_x_error[int(tgt_classes[tgt_index])].append(rotation_error[0])
             self.rotation_y_error[int(tgt_classes[tgt_index])].append(rotation_error[1])
             self.rotation_z_error[int(tgt_classes[tgt_index])].append(rotation_error[2])
+
+    def estimate_add_s(self, pred_indexes, pred_6dof, pred_classes, tgt_indexes, tgt_6dof, tgt_classes, obj_verts_list, obj_diameters):
+        
+        for (i, tgt_index) in enumerate(tgt_indexes):
+            pred_index = pred_indexes[i]
+            pred_class = int(pred_classes[pred_index])
+            pred_t = pred_6dof[pred_index,pred_class, :3]
+            pred_r = pred_6dof[pred_index, pred_class, 3:]
+            pred_r = R.from_quat(pred_r).as_matrix()
+            
+
+            tgt_t = tgt_6dof[tgt_index][:3]
+            tgt_r = tgt_6dof[tgt_index][3:]
+            tgt_r = R.from_quat(tgt_r).as_matrix()
+            tgt_class = int(tgt_classes[tgt_index])
+
+            verts = obj_verts_list[tgt_class]
+            obj_diameter = obj_diameters[tgt_class]
+
+            pred_verts = np.dot(verts.cpu(), pred_r) + np.array(pred_t)
+            tgt_verts = np.dot(verts.cpu(), tgt_r) + np.array(tgt_t)
+
+            add_error = np.linalg.norm(pred_verts - tgt_verts) / verts.shape[0]
+
+            if add_error <= obj_diameter * 0.1 and pred_class==tgt_class:
+                self.add[tgt_class].append(1)
+            else:
+                self.add[tgt_class].append(0)
+
 
     def giou_match(self, pred_bbox, tgt_bbox, bs = 1):
         # Compute the giou cost betwen boxes
