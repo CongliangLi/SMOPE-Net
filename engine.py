@@ -230,7 +230,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         if li3d_evaluator is not None:
             li3d_evaluator.update(res)
 
-        if pose_result_plotor is not None and i % record_freq == 0:
+        # if pose_result_plotor is not None and i % record_freq == 0:
+        if pose_result_plotor is not None and i % 1 == 0:
             ploter_head = f'test_i{i}' if epoch is None else f'evl_e{epoch}_i{i}'
             pose_result_plotor(samples.tensors, res, targets, args, ploter_head)
 

@@ -243,6 +243,7 @@ class PoseResultPlotor(object):
             add_error = np.linalg.norm(pred_verts - tgt_verts) / verts.shape[0]
 
             if add_error <= obj_diameter * 0.1 and pred_class==tgt_class:
+            # if add_error <= obj_diameter * 0.1:
                 self.add[tgt_class].append(1)
             else:
                 self.add[tgt_class].append(0)
