@@ -82,12 +82,12 @@
     "start_epoch": 0,
     "end_epoch": 1000,
     "resume": "/home/dw/data/PythonProject/DETR/output_dir_pose_linemod/resnet50_Linemod_preprocessed_b4_lr0.0002_nq300_gamma2_alpha0.25/checkpoints/best_checkpoint.pth",
+    "batch_size": 4,
     "aux_loss": false,
 
     "frozen_weights": null,
     "save_weights_num": 10,
 
-    "batch_size": 4,
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,

@@ -4,7 +4,8 @@ import os
 import time
 from util.utils import parse_yaml
 
-configure_name = 'config_linemod.json'
+configure_name = "config.json"
+# configure_name = 'config_linemod.json'
 
 config = Config.get_configure(configure_name)
 

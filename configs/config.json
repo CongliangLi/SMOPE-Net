@@ -77,12 +77,13 @@
     "start_epoch": 0,
     "end_epoch": 1000,
     "resume": "",
+    "batch_size": 4,
     "aux_loss": false,
 
     "frozen_weights": null,
     "save_weights_num": 10,
 
-    "batch_size": 4,
+
     "num_workers": 0,
     "lr": 2e-4,
     "lr_backbone":2e-5,
