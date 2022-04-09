@@ -137,7 +137,7 @@ python creat_dateset.py
 
 ### Test
 
-- Download the network [weights file]()
+- Download the network [weights file](https://drive.google.com/file/d/1dJBGhi-zbJE9eexaVRrKcHDoghuwaY-V/view?usp=sharing)
 
 - Modify the `<project path>/configs/__init__.py` to
 
@@ -207,7 +207,7 @@ python creat_dateset.py
 
 ## LineMod-O
 
-- Download the training and testing dataset from [here](https://drive.google.com/file/d/1nEtIAb0-AwoS8yNa2BQaoWn387xFdF9S/view?usp=sharing)
+- Download the training and testing dataset from [here](https://drive.google.com/file/d/182mXo1vnTNaXNa-zFJzRYv64BBqoWirD/view?usp=sharing)
 
 ### Test
 
