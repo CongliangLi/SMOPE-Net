@@ -1,21 +1,21 @@
-# [SMOPE-Net](https://shijies.github.io/DMMN_Page/)
+# [SMOPE-Net]()
 
 We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose **E**stimation **N**etwork (**SMOPE-Net**) that performs multi-target detection and pose estimation tasks in an end-to-end manner. SMOPE-Net extracts the object model features and fuses the model features with the image features to infer the object categories, 2-D detection boxes, poses, and visibility. We perform experiments and comparisons to existing methods on multiple datasets including the new KITTI-3D dataset and the existing LineMod-O datasets. And our method achieves better than existing methods forpose estimation on both datasets.
 
 ------
 
-- [SMOPE-Net](#SMOPE-Net)
+- [SMOPE-Net](#smope-net)
   - [Results](#results)
   - [RoadMap](#roadmap)
   - [SMOPE-Net](#smope-net)
-  - [Installation](#Installation)
-    - [Requirements](#Requirements)
-    - [Compiling CUDA operators](#Compiling CUDA operators) 
+  - [Installation](#installation)
+    - [Requirements](#requirements)
+    - [Compiling CUDA operators](#cuda)
   - [Preparation](#preparation)
-  - [KITTI-3D](#KITTI-3D)
+  - [KITTI-3D](#kitti-3d)
     - [Test](#test)
     - [Train](#train)
-  - [LineMod-O](#LineMod-O)
+  - [LineMod-O](#linemod-o)
     - [Test](#test-1)
     - [Train](#train-1)
   - [Citation](#citation)
@@ -110,8 +110,9 @@ Schematics of end-to-end trainable SMOPE-Net: The network expects images and $N_
     ```bash
     pip install -r requirements.txt
     ```
+    
 
-### Compiling CUDA operators
+### Compiling CUDA operators  <div id="cuda"></div>
 ```bash
 cd ./models/ops
 sh ./make.sh
