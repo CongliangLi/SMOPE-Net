@@ -284,11 +284,7 @@ python creat_dateset.py
 ## Citation
 
 ```
-@inproceedings{ShiJie20,
-  author = {Shijie Sun, Naveed Aktar, XiangYu Song, Huansheng Song, Ajmal Mian, Mubarak Shah},
-  title = {Simultaneous Detection and Tracking with Motion Modelling for Multiple Object Tracking},
-  booktitle = {Proceedings of the European conference on computer vision (ECCV)}},
-  year = {2020}
+
 ```
 
 ## Acknowledge
