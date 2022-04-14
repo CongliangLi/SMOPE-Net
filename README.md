@@ -128,7 +128,7 @@ sh ./make.sh
 
 ## KITTI-3D
 
-- Download the dataset from [[here]](https://github.com/CongliangLi/LabelImg3D/#Dateset).
+- Download the dataset from [here](https://github.com/CongliangLi/LabelImg3D/#Dateset).
 
 - Run the creat_dataset.py
 ```shell
@@ -289,7 +289,7 @@ python creat_dateset.py
 
 ## Acknowledge
 
-This work is based on the [Pytroch](https://github.com/pytorch/pytorch), [Pytorch3D](https://github.com/facebookresearch/pytorch3d) and [Deformable-DETR](https://github.com/fundamentalvision/Deformable-DETR)]. It also inspired by [DETR](https://github.com/facebookresearch/detr).
+This work is based on the [Pytroch](https://github.com/pytorch/pytorch), [Pytorch3D](https://github.com/facebookresearch/pytorch3d) and [Deformable-DETR](https://github.com/fundamentalvision/Deformable-DETR). It also inspired by [DETR](https://github.com/facebookresearch/detr).
 
 ## License
 
