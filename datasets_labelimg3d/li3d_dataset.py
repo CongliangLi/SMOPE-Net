@@ -154,22 +154,13 @@ def make_transforms(image_set):
 
     if image_set == 'train':
         return T.Compose([
-            # T.RandomHorizontalFlip(),
-            T.RandomSelect(
-                T.RandomResize(scales, max_size=1333),
-                T.Compose([
-                    T.RandomResize([400, 500, 600]),
-                    # T.RandomSizeCrop(384, 600),
-                    T.RandomResize(scales, max_size=1333),
-                ])
-            ),
+            T.RandomResize([config["image_height"]], max_size=config["image_width"]),
             normalize,
         ])
 
     if image_set == 'val':
         return T.Compose([
-            # T.RandomResize([config["image_height"]]),
-            T.RandomResize(scales, max_size=1333),
+            T.RandomResize([config["image_height"]], max_size=config["image_width"]),
             normalize,
         ])
 
