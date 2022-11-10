@@ -39,25 +39,6 @@ We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose
 ![](./images/LineMod-results.png)
 
 
-## RoadMap
-
-| Date   | Event                                                        |
-| ------ | ------------------------------------------------------------ |
-| 202204 | Finish the papers :-)                                        |
-| 202203 | Preparing papers                                             |
-| 202201 | Get Result on [LineMod-0](https://drive.google.com/file/d/1nEtIAb0-AwoS8yNa2BQaoWn387xFdF9S/view?usp=sharing) dataset |
-| 202201 | Can Train on [LineMod-0](https://drive.google.com/file/d/1nEtIAb0-AwoS8yNa2BQaoWn387xFdF9S/view?usp=sharing) dataset |
-| 202112 | Get Result on [KITTI-3D](https://github.com/CongliangLi/LabelImg3D) dataset |
-| 202112 | Can Train on [KITTI-3D](https://github.com/CongliangLi/LabelImg3D) dataset |
-| 202111 | Optimized this network                                       |
-| 202110 | Can Do the Basic Detection and Pose Estimation               |
-| 202109 | Design the Loss Fucntion                                     |
-| 202108 | Try the [KITTI-3D](https://github.com/CongliangLi/LabelImg3D)  dataset |
-| 202107 | Re-design the Model-Net                                      |
-| 202106 | Design the whole network                                     |
-| 202105 | Start this idea                                              |
-
-
 
 ## SMOPE-Net
 
