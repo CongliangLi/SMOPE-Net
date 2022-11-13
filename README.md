@@ -2,6 +2,8 @@
 
 We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose **E**stimation **N**etwork (**SMOPE-Net**) that performs multi-target detection and pose estimation tasks in an end-to-end manner. SMOPE-Net extracts the object model features and fuses the model features with the image features to infer the object categories, 2-D detection boxes, poses, and visibility. We perform experiments and comparisons to existing methods on multiple datasets including the new KITTI-3D dataset and the existing LineMod-O datasets. And our method achieves better than existing methods forpose estimation on both datasets.
 
+Inference is performed on a single RGB image using only part of the network within the <font color = "yellowgreen">green</font>  background. The learned  $N_m \times 256$ embeddings are used and the  3D models/Endcoder/Decoder are no longer required.}
+
 ------
 
 - [SMOPE-Net](#smope-net)
@@ -12,10 +14,10 @@ We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose
     - [Requirements](#requirements)
     - [Compiling CUDA operators](#cuda)
   - [Preparation](#preparation)
-  - [KITTI-3D](#kitti-3d)
+  - [KITTI-6DoF](#kitti-6dof)
     - [Test](#test)
     - [Train](#train)
-  - [LineMod-O](#linemod-o)
+  - [LineMod](#linemod)
     - [Test](#test-1)
     - [Train](#train-1)
   - [Citation](#citation)
@@ -26,15 +28,15 @@ We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose
 
 ## Results
 
-> SMOPE-Net on KITTI-3D dataset 
+> SMOPE-Net on KITTI-6DoF dataset 
 
-![](images/KITTI3D-results.png)
+![](images/KITTI-6DoF-results.png)
 
-> Comparison results on KITTI-3D dataset
+> Comparison results on KITTI-6DoF dataset
 
 ![](images/Comparison-result.png)
 
-> SMOPE-Net on LineMod-O dataset
+> SMOPE-Net on LineMod dataset
 
 ![](./images/LineMod-results.png)
 
@@ -42,7 +44,7 @@ We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose
 
 ## SMOPE-Net
 
-Schematics of end-to-end trainable SMOPE-Net: The network expects images and $N_m$ 3D object models as input. The Deformable-DETR (D-DETR) block provides a 256-dimensional feature vector for each of the <img src="https://latex.codecogs.com/svg.image?N_q"/> queries. It also provides detected bounding boxes (Bboxes) for the input image under the loss <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{D} "/>. A 3D Encoder learns a 256-dimensional latent space from the 3D models. The features of <img src="https://latex.codecogs.com/svg.image?{N}_{m} "/> models in this space are used by the 3D Decoder to estimate model points, scales and centers to reconstruct the <img src="https://latex.codecogs.com/svg.image?{N}_{m}"/> models under the loss <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{M}"/>. The <img src="https://latex.codecogs.com/svg.image?N_m \times 256"/> latent features are also used by the 3D Attention module to compute attention maps for the queries, and 3D Model Pose module to subsequently predict model class and object 6DoF pose estimates. Both components are used for computing the <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{p}"/> loss.
+Schematics of end-to-end trainable SMOPE-Net: The network expects images and $N_m$ 3D object models as input. The Deformable-DETR (D-DETR) block provides a 256-dimensional feature vector for each of the <img src="https://latex.codecogs.com/svg.image?N_q"/> queries. It also provides detected bounding boxes (Bboxes) for the input image under the loss <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{D} "/>. A 3D Encoder learns a 256-dimensional latent space from the 3D models. The features of <img src="https://latex.codecogs.com/svg.image?{N}_{m} "/> models in this space are used by the 3D Decoder to estimate model points, scales and centers to reconstruct the <img src="https://latex.codecogs.com/svg.image?{N}_{m}"/> models under the loss <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{M}"/>. The <img src="https://latex.codecogs.com/svg.image?N_m \times 256"/> latent features are also used by the 3D Attention module to compute attention maps for the queries, and 3D Model Pose module to subsequently predict model class and object 6DoF pose estimates. Both components are used for computing the <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{p}"/> loss. Inference is performed on a single RGB image using only part of the network within the <font color="yellowgreen">green</font>  background. The learned  <img src="https://latex.codecogs.com/svg.image?N_m \times 256"/> embeddings are used and the  3D models/Endcoder/Decoder are no longer required.
 
 ![framework](./images/SMOPE.png)
 
@@ -107,7 +109,7 @@ sh ./make.sh
   ```
 
 
-## KITTI-3D
+## KITTI-6DoF
 
 - Download the dataset from [here](https://github.com/CongliangLi/LabelImg3D/#Dateset).
 
@@ -187,7 +189,7 @@ python creat_dateset.py
   python main.py
   ```
 
-## LineMod-O
+## LineMod
 
 - Download the training and testing dataset from [here](https://drive.google.com/file/d/182mXo1vnTNaXNa-zFJzRYv64BBqoWirD/view?usp=sharing)
 
