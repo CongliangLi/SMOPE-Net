@@ -2,8 +2,6 @@
 
 We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose **E**stimation **N**etwork (**SMOPE-Net**) that performs multi-target detection and pose estimation tasks in an end-to-end manner. SMOPE-Net extracts the object model features and fuses the model features with the image features to infer the object categories, 2-D detection boxes, poses, and visibility. We perform experiments and comparisons to existing methods on multiple datasets including the new KITTI-3D dataset and the existing LineMod-O datasets. And our method achieves better than existing methods forpose estimation on both datasets.
 
-Inference is performed on a single RGB image using only part of the network within the <font color = "yellowgreen">green</font>  background. The learned  $N_m \times 256$ embeddings are used and the  3D models/Endcoder/Decoder are no longer required.}
-
 ------
 
 - [SMOPE-Net](#smope-net)
