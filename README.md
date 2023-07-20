@@ -38,15 +38,29 @@ We introduce the **S**imultaneous **M**ultiple **O**bject detection and **P**ose
 
 ![](./images/LineMod-results.png)
 
+## RoadMap
 
+| Date   | Event                                                        |
+| ------ | ------------------------------------------------------------ |
+| 202306 | Finish the papers :-)                                        |
+| 202305 | Preparing papers                                             |
+| 202303 | Get Result on [LineMod-0](https://drive.google.com/file/d/1nEtIAb0-AwoS8yNa2BQaoWn387xFdF9S/view?usp=sharing) dataset |
+| 202303 | Can Train on [LineMod-0](https://drive.google.com/file/d/1nEtIAb0-AwoS8yNa2BQaoWn387xFdF9S/view?usp=sharing) dataset |
+| 202301 | Get Result on [KITTI-3D](https://github.com/CongliangLi/LabelImg3D) dataset |
+| 202301 | Can Train on [KITTI-3D](https://github.com/CongliangLi/LabelImg3D) dataset |
+| 202212 | Optimized this network                                       |
+| 202211 | Can Do the Basic Detection and Pose Estimation               |
+| 202210 | Design the Loss Fucntion                                     |
+| 202209 | Try the [KITTI-3D](https://github.com/CongliangLi/LabelImg3D)  dataset |
+| 202208 | Re-design the Model-Net                                      |
+| 202207 | Design the whole network                                     |
+| 202207 | Start this idea                                              |
 
 ## SMOPE-Net
 
 Schematics of end-to-end trainable SMOPE-Net: The network expects images and $N_m$ 3D object models as input. The Deformable-DETR (D-DETR) block provides a 256-dimensional feature vector for each of the <img src="https://latex.codecogs.com/svg.image?N_q"/> queries. It also provides detected bounding boxes (Bboxes) for the input image under the loss <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{D} "/>. A 3D Encoder learns a 256-dimensional latent space from the 3D models. The features of <img src="https://latex.codecogs.com/svg.image?{N}_{m} "/> models in this space are used by the 3D Decoder to estimate model points, scales and centers to reconstruct the <img src="https://latex.codecogs.com/svg.image?{N}_{m}"/> models under the loss <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{M}"/>. The <img src="https://latex.codecogs.com/svg.image?N_m \times 256"/> latent features are also used by the 3D Attention module to compute attention maps for the queries, and 3D Model Pose module to subsequently predict model class and object 6DoF pose estimates. Both components are used for computing the <img src="https://latex.codecogs.com/svg.image?\mathcal{L}_{p}"/> loss. Inference is performed on a single RGB image using only part of the network within the <font color="yellowgreen">green</font>  background. The learned  <img src="https://latex.codecogs.com/svg.image?N_m \times 256"/> embeddings are used and the  3D models/Endcoder/Decoder are no longer required.
 
 ![framework](./images/SMOPE.png)
-
-
 
 
 ## Installation
